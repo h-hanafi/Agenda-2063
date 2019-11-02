@@ -1,7 +1,8 @@
-library(tidyverse)
-library(RColorBrewer)
-library(caret)
-library(xgboost)
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(RColorBrewer)) install.packages("data.table", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(randomForest)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(xgboost)) install.packages("caret", repos = "http://cran.us.r-project.org")
 
 #Inputing AU Member Countries
 AU <- c("Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cabo Verde", "Cameroon	Central African Republic", 
@@ -29,30 +30,39 @@ Unemployment <- read_csv(file.path(Raw_Data_Folder,"Unemployment",Unemployment_c
 
 #Tidying the Data
 colnames(Unemployment) <- str_replace(colnames(Unemployment), " ", "_") 
-Unemployment <- Unemployment %>%filter(Country_Name %in% AU) %>% gather(key = "Year", value = "Unemployment", `1960`:`2019`, convert = TRUE) %>% 
-  select(-c(X65,Indicator_Code)) %>% filter(Country_Name %in% AU) %>% select(-Country_Code, -Indicator_Name)
+Unemployment <- Unemployment %>%
+  filter(Country_Name %in% AU) %>% 
+  gather(key = "Year", value = "Unemployment", `1960`:`2019`, convert = TRUE) %>% 
+  select(-c(X65,Indicator_Code)) %>% 
+  filter(Country_Name %in% AU) %>% 
+  select(-Country_Code, -Indicator_Name)
 
 #Viewing The Data
 Unemployment %>% 
-  ggplot(aes(Year,Country_Name, fill = Unemployment)) + geom_tile(color = "black") + 
-  scale_fill_distiller(palette = "Blues", na.value = "grey50", direction = 1) + 
+  ggplot(aes(Year,Country_Name, fill = Unemployment)) + 
+  geom_tile(color = "black") + 
+  scale_fill_distiller(palette = "Blues", na.value = "grey50", direction = 1, name = "Unemployment rate") + 
   scale_x_continuous(expand = c(0,0)) + scale_y_discrete(expand = c(0,0)) + 
-  theme(axis.text.y = element_text(hjust = 1))
+  theme(axis.text.y = element_text(hjust = 1)) +
+  ylab("Country")
 
 #Removing years and countries with no data
 No_Data <- Unemployment %>%
   group_by(Year) %>% summarize(No_Data = sum(!is.na(Unemployment))) 
-Unemployment <- Unemployment %>% left_join(No_Data, by = "Year") %>% filter(No_Data != 0) %>% select(-No_Data) 
+Unemployment <- Unemployment %>% 
+  left_join(No_Data, by = "Year") %>% filter(No_Data != 0) %>% select(-No_Data) 
 
 No_Data <- Unemployment %>% group_by(Country_Name) %>% summarize(No_Data = sum(!is.na(Unemployment))) 
-Unemployment <- Unemployment %>% left_join(No_Data, by = "Country_Name") %>% filter(No_Data != 0) %>% select(-No_Data) 
+Unemployment <- Unemployment %>% 
+  left_join(No_Data, by = "Country_Name") %>% filter(No_Data != 0) %>% select(-No_Data) 
 
 #Setting Baseline and Test Sets
 #Baseline
 Unemployment %>% group_by(Country_Name) %>% filter(Year == c(2013)) %>% 
   summarize(Baseline = Unemployment) %>% filter(is.na(Baseline))
 
-Baseline_Unemployment <- Unemployment %>% group_by(Country_Name) %>% filter(Year == (2013)) %>% 
+Baseline_Unemployment <- Unemployment %>% 
+  group_by(Country_Name) %>% filter(Year == (2013)) %>% 
   summarize(Baseline = Unemployment) %>% filter(!is.na(Baseline))
 
 #Tests Set
@@ -71,26 +81,43 @@ Unemployment %>% pull(Year) %>% min()
 
 #Viewing the Data
 Unemployment %>% 
-  ggplot(aes(Year,Country_Name, fill = Unemployment)) + geom_tile(color = "black") + 
-  scale_fill_distiller(palette = "Blues", na.value = "black", direction = 1) + scale_x_continuous(expand = c(0,0)) + scale_y_discrete(expand = c(0,0)) +
+  ggplot(aes(Year,Country_Name, fill = Unemployment)) + 
+  geom_tile(color = "black") + 
+  scale_fill_distiller(palette = "Blues", na.value = "black", direction = 1, name = "Unemployment rate") + 
+  scale_x_continuous(expand = c(0,0)) + scale_y_discrete(expand = c(0,0)) +
+  ylab("Country") +
   theme(panel.background = element_rect(fill = "grey50", color = "black"), panel.grid = element_line(color = "grey50"))
 
 #Continent Wide Trend
-Unemployment %>% group_by(Year) %>% summarize(Africa_Unemployment = mean(Unemployment)) %>% ggplot(aes(Year,Africa_Unemployment)) + geom_point() + geom_smooth(span = 0.75)
+Unemployment %>% group_by(Year) %>% summarize(Africa_Unemployment = mean(Unemployment)) %>% 
+  ggplot(aes(Year,Africa_Unemployment)) + 
+  geom_point() + geom_smooth(span = 0.75) +
+  ylab("AU Average Unempolyment rate")
 
 #Continent Wide Boxplot
-Unemployment %>% ggplot(aes(as.character(Year),Unemployment)) + geom_boxplot() + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + xlab("Year")
+Unemployment %>% group_by(Year) %>% mutate(Africa_Unemployment = mean(Unemployment)) %>%
+  ggplot(aes(as.character(Year),Unemployment)) + 
+  geom_boxplot() + 
+  geom_point(aes(as.character(Year),Africa_Unemployment), color = "blue") +
+  scale_color_distiller(palette = "Blues", na.value = "black", direction = 1, name = "Unemployment rate") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.25)) + 
+  xlab("Year") +
+  ylab("Unemployment rate")
 
-#Regularized Boxpolt
-Unemployment %>% group_by(Year) %>% mutate(Unemployment_R = Unemployment - mean(Unemployment)) %>% group_by(Country_Name) %>% mutate(Unemployment_mean = Unemployment_R - mean(Unemployment)) %>% 
-  ggplot(aes(as.character(Year),Unemployment_R)) + geom_boxplot() + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + xlab("Year") + ylab("Unemployment")
-
-#Percentage difference to the 2013 Baseline
-Unemployment %>% left_join(Baseline_Unemployment) %>% group_by(Year) %>% summarize(Africa_Unemployment = mean(Unemployment), Baseline = mean(Baseline)) %>% 
+# Percentage difference between AU Average and the 2013 Baseline
+Unemployment %>% left_join(Baseline_Unemployment) %>% 
+  group_by(Year) %>% 
+  summarize(Africa_Unemployment = mean(Unemployment), Baseline = mean(Baseline)) %>% 
   mutate(Difference_to_Baseline = (Africa_Unemployment - Baseline)/Baseline) %>% 
-  ggplot(aes(Year,Difference_to_Baseline)) + geom_point() + geom_vline(xintercept = 2013, linetype = 2, color = "orange3") + 
-  geom_hline(yintercept = -0.25, linetype = 2, color = "red3") + 
-  geom_text(data = data_frame(x = c(2013,2000), y = c(0.15,-0.25), label = c("2013", "-25%"), angle = c(90,0)), aes(x = x, y = y, label = label, angle = angle, vjust = 1))
+  ggplot(aes(Year,Difference_to_Baseline)) + 
+  geom_point() + 
+  geom_vline(xintercept = 2013, linetype = 2, color = "blue") + 
+  geom_hline(data = data_frame(yintercept = c(-0.25,0), color = c("black","red")),
+                        aes(yintercept = yintercept, color = color),linetype = c(2,1),show.legend = FALSE) + 
+  geom_text(data = data_frame(x = c(2013,2000), y = c(0.15,-0.25), label = c("2013", "25% below Baseline"), angle = c(90,0)), 
+            aes(x = x, y = y, label = label, angle = angle, vjust = 1), size = 12 / .pt) + 
+  scale_color_manual(values = c("red","black")) +
+  ylab("Percentage difference between AU Average \n and the 2013 Baseline")
 
 # model
 Control <- trainControl(method = "cv", number = 15, p = 0.9)
@@ -122,27 +149,36 @@ Results_Unemployment <- data_frame(method = c("lm","knn","xgb","rf"), RMSE = c(R
 fit_Unemployment <- list(lm = fit_lm_Unemployment, knn = fit_knn_Unemployment, xgb = fit_xgb_Unemployment, rf = fit_rf_Unemployment)
 
 #2023 goal
-Best_Model <- fit_Unemployment[[Results_Unemployment$method[which.min(Results_Unemployment$RMSE)]]]
+Best_fit_Unemployment <- fit_Unemployment[[Results_Unemployment$method[which.min(Results_Unemployment$RMSE)]]]
+Best_fit_Unemployment$method
 
 Unemployment_2023 <- Unemployment_test %>% mutate(Year = 2023) %>% select(-Unemployment)
 
-Unemployment_2023 <- Unemployment_2023 %>% mutate(Unemployment = predict(Best_Model, newdata = Unemployment_2023))
+Unemployment_2023 <- Unemployment_2023 %>% 
+  mutate(Unemployment = predict(Best_fit_Unemployment, newdata = Unemployment_2023)) %>% 
+  left_join(Baseline_Unemployment, by = "Country_Name") %>% 
+  mutate(Difference_to_Baseline = (Unemployment - Baseline)/Baseline)
 
-Unemployment_2023 <- Unemployment_2023 %>% left_join(Baseline_Unemployment, by = "Country_Name") %>% mutate(Difference_to_Baseline = (Unemployment - Baseline)/Baseline)
-
-Unemployment_2023 %>% ggplot(aes(Country_Name,Difference_to_Baseline)) + geom_point() + theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust = 0)) + 
-  geom_hline(yintercept = -0.25, color = "red", linetype = 2) + geom_text(x = 40, y = -0.25, label = "-25%", vjust = 1)
-
-Unemployment_2023 %>% ggplot(aes(as.character(Year),Difference_to_Baseline)) + 
-  geom_boxplot(outlier.shape = NA) + geom_jitter(alpha = 0.3) + geom_hline(yintercept = -0.25, color = "red", linetype = 2) +
-  geom_text(x = 1.5, y = -0.25, label = "-25%", vjust = 1, size = 5) + xlab("Year")
+Unemployment_2023 %>% 
+  ggplot(aes(as.character(Year),Difference_to_Baseline)) + 
+  geom_boxplot(outlier.shape = NA) + geom_jitter(alpha = 0.3) + 
+  geom_hline(yintercept = -0.25, color = "red", linetype = 2) +
+  geom_text(x = 1, y = -0.25, label = "25% below Baseline", vjust = 1, size = 12 / .pt) + 
+  xlab("Year") + 
+  ylab("Percentage Difference between Baseline Unemployment rate and \n Predicted Unemployment rate")
 
 Unemployment_2023 %>% filter(Difference_to_Baseline <= -0.25) %>% select(Country_Name, Unemployment, Difference_to_Baseline)
 
-Unemployment_2023 %>% filter(Difference_to_Baseline <= -0.25) %>% select(Country_Name) %>% 
-  inner_join(Unemployment, by = c("Country_Name")) %>% left_join(Baseline_Unemployment) %>% 
+Unemployment_2023 %>% 
+  filter(Difference_to_Baseline <= -0.25) %>% select(Country_Name) %>% 
+  inner_join(Unemployment, by = c("Country_Name")) %>% 
+  left_join(Baseline_Unemployment) %>% 
   mutate(Difference_to_Baseline = (Unemployment - Baseline)/Baseline) %>%
   ggplot(aes(Year, Difference_to_Baseline, color = Country_Name)) + 
-  geom_point() + scale_color_brewer("Country",palette = "Dark2") + geom_hline(yintercept = -0.25, color = "red", linetype =2) + facet_wrap(~Country_Name)
+  geom_point(show.legend = FALSE) + scale_color_brewer("Country",palette = "Dark2") + 
+  geom_hline(yintercept = -0.25, color = "red", linetype =2) + 
+  geom_smooth(span = 0.75) +
+  facet_grid(Country_Name~.) + 
+  ylab("Percentage Difference between Baseline Unemployment rate and \n Predicted Unemployment rate")
 
 Unemployment_2023 %>% summarise(AU_Unemployment = mean(Unemployment), AU_Difference_to_Baseline = mean(Difference_to_Baseline))
