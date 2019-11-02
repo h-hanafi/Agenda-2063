@@ -1,14 +1,13 @@
 library(tidyverse)
 library(RColorBrewer)
 library(caret)
-library(rpart)
-library(randomForest)
+library(xgboost)
 
 #Inputing AU Member Countries
 AU <- c("Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cabo Verde", "Cameroon	Central African Republic", 
-        "Chad", "Comoros",	"Congo, Dem. Rep.",	"Congo, Rep.",	"C?te d'Ivoire",	"Djibouti",	"Egypt Arab Rep.",	"Equatorial Guinea", "Eritrea",	
+        "Chad", "Comoros",	"Congo, Dem. Rep.",	"Congo, Rep.",	"Cote d'Ivoire",	"Djibouti",	"Egypt Arab Rep.",	"Equatorial Guinea", "Eritrea",	
         "Eswatini",	"Ethiopia",	"Gabon", "Gambia, The",	"Ghana", "Guinea", "Guinea-Bissau",	"Kenya", "Lesotho", "Liberia",	"Libya",	"Madagascar", 
-        "Malawi", "Mali",	"Mauritania",	"Mauritius",	"Morocco",	"Mozambique",	"Namibia",	"Niger", "Nigeria",	"Rwanda",	"S?o Tom? and Principe", 
+        "Malawi", "Mali",	"Mauritania",	"Mauritius",	"Morocco",	"Mozambique",	"Namibia",	"Niger", "Nigeria",	"Rwanda",	"Sao Tome and Principe", 
         "Senegal",	"Seychelles", "Sierra Leone",	"Somalia", "South Africa", "South Sudan",	"Sudan", "Tanzania", "Togo",	"Tunisia", "Uganda", 
         "Zambia", "Zimbabwe")
 
@@ -94,34 +93,40 @@ Unemployment %>% left_join(Baseline_Unemployment) %>% group_by(Year) %>% summari
   geom_text(data = data_frame(x = c(2013,2000), y = c(0.15,-0.25), label = c("2013", "-25%"), angle = c(90,0)), aes(x = x, y = y, label = label, angle = angle, vjust = 1))
 
 # model
-fit_lm <- train(Unemployment ~ Country_Name + Year, data = Unemployment, method = "lm")
-pred_lm <- predict(fit_lm, newdata = Unemployment_test)
-RMSE_lm <- sqrt(mean((pred_lm - Unemployment_test$Unemployment)^2))
+Control <- trainControl(method = "cv", number = 15, p = 0.9)
+
+fit_lm_Unemployment <- train(Unemployment ~ ., data = Unemployment, method = "lm", trControl = Control)
+pred_lm_Unemployment <- predict(fit_lm_Unemployment, newdata = Unemployment_test)
+RMSE_lm <- sqrt(mean((pred_lm_Unemployment - Unemployment_test$Unemployment)^2))
 
 tune = data.frame(k = 1:5)
-fit_knn <- train(Unemployment ~ Country_Name + Year, data = Unemployment, method = "knn", tuneGrid = tune)
-plot(fit_knn)
-pred_knn <- predict(fit_knn, newdata = Unemployment_test)
-RMSE_knn <- sqrt(mean((pred_knn - Unemployment_test$Unemployment)^2))
+fit_knn_Unemployment <- train(Unemployment ~ ., data = Unemployment, method = "knn", tuneGrid = tune, trControl = Control)
+plot(fit_knn_Unemployment)
+pred_knn_Unemployment <- predict(fit_knn_Unemployment, newdata = Unemployment_test)
+RMSE_knn <- sqrt(mean((pred_knn_Unemployment - Unemployment_test$Unemployment)^2))
 
-tune = data.frame(cp = seq(0,0.5,0.05))
-fit_rpart <- train(Unemployment ~ Country_Name + Year, data = Unemployment, method = "rpart", tuneGrid = tune)
-plot(fit_rpart)
-pred_rpart <- predict(fit_rpart, newdata = Unemployment_test)
-RMSE_rpart <- sqrt(mean((pred_rpart - Unemployment_test$Unemployment)^2))
+tune <- expand.grid(nrounds = seq(200,300,50), lambda = seq(1,3,0.5), alpha = c(0,1e-04), eta = 0.3)
+fit_xgb_Unemployment <- train(Unemployment ~ ., data = Unemployment, method = "xgbLinear", tuneGrid = tune, trControl = Control )
+plot(fit_xgb_Unemployment)
+pred_xgb_Unemployment <- predict(fit_xgb_Unemployment, newdata = Unemployment_test)
+RMSE_xgb <- sqrt(mean((pred_xgb_Unemployment - Unemployment_test$Unemployment)^2))
 
-tune = data.frame(mtry = seq(40,60,10))
-fit_rf <- train(Unemployment ~ Country_Name + Year, data = Unemployment, method = "rf", tuneGrid = tune)
-plot(fit_rf)
-pred_rf <- predict(fit_rf, newdata = Unemployment_test)
-RMSE_rf <- sqrt(mean((pred_rf - Unemployment_test$Unemployment)^2))
+tune = data.frame(mtry = seq(40,50,5))
+fit_rf_Unemployment<- train(Unemployment ~ ., data = Unemployment, method = "rf", tuneGrid = tune, trControl = Control)
+plot(fit_rf_Unemployment)
+pred_rf_Unemployment <- predict(fit_rf_Unemployment, newdata = Unemployment_test)
+RMSE_rf <- sqrt(mean((pred_rf_Unemployment - Unemployment_test$Unemployment)^2))
 
-Model_results_Unemployment <- data_frame(method = c("lm","knn","rpart","rf"), RMSE = c(RMSE_lm,RMSE_knn,RMSE_rpart,RMSE_rf))
+Results_Unemployment <- data_frame(method = c("lm","knn","xgb","rf"), RMSE = c(RMSE_lm,RMSE_knn,RMSE_xgb,RMSE_rf))
+
+fit_Unemployment <- list(lm = fit_lm_Unemployment, knn = fit_knn_Unemployment, xgb = fit_xgb_Unemployment, rf = fit_rf_Unemployment)
 
 #2023 goal
+Best_Model <- fit_Unemployment[[Results_Unemployment$method[which.min(Results_Unemployment$RMSE)]]]
+
 Unemployment_2023 <- Unemployment_test %>% mutate(Year = 2023) %>% select(-Unemployment)
 
-Unemployment_2023 <- Unemployment_2023 %>% mutate(Unemployment = pred_rf)
+Unemployment_2023 <- Unemployment_2023 %>% mutate(Unemployment = predict(Best_Model, newdata = Unemployment_2023))
 
 Unemployment_2023 <- Unemployment_2023 %>% left_join(Baseline_Unemployment, by = "Country_Name") %>% mutate(Difference_to_Baseline = (Unemployment - Baseline)/Baseline)
 
@@ -134,7 +139,10 @@ Unemployment_2023 %>% ggplot(aes(as.character(Year),Difference_to_Baseline)) +
 
 Unemployment_2023 %>% filter(Difference_to_Baseline <= -0.25) %>% select(Country_Name, Unemployment, Difference_to_Baseline)
 
-Unemployment_2023 %>% filter(Difference_to_Baseline <= -0.25) %>% select(Country_Name) %>% inner_join(Unemployment, by = c("Country_Name")) %>% 
-  ggplot(aes(Year,Unemployment,color = Country_Name)) + geom_point() + scale_color_brewer(palette = "Dark2") + facet_wrap(~Country_Name)
+Unemployment_2023 %>% filter(Difference_to_Baseline <= -0.25) %>% select(Country_Name) %>% 
+  inner_join(Unemployment, by = c("Country_Name")) %>% left_join(Baseline_Unemployment) %>% 
+  mutate(Difference_to_Baseline = (Unemployment - Baseline)/Baseline) %>%
+  ggplot(aes(Year, Difference_to_Baseline, color = Country_Name)) + 
+  geom_point() + scale_color_brewer("Country",palette = "Dark2") + geom_hline(yintercept = -0.25, color = "red", linetype =2) + facet_wrap(~Country_Name)
 
 Unemployment_2023 %>% summarise(AU_Unemployment = mean(Unemployment), AU_Difference_to_Baseline = mean(Difference_to_Baseline))
