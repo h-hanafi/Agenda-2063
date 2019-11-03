@@ -56,7 +56,8 @@ We will analyse each of these indicators Seperately using the following steps:
 ## Unemployment Rate
 
 ### Data Wrangling
-We Will start the Unemployment Rate Loading the Data from the World Bank Website with the code below:
+
+We Will start the with the Unemployment Rate, Loading the Data from the World Bank modelled estimate with the code below:
 
 ```{r Loading Unemployment Data, echo=TRUE, message=FALSE, warning=FALSE}
 ### Loading Unemployment Rate
@@ -65,7 +66,8 @@ Raw_Data_Folder <- file.path(getwd(),"Raw_Data")
 dir.create(Raw_Data_Folder)
 
 ##Downloading and Unpacking the File
-download.file("http://api.worldbank.org/v2/en/indicator/SL.UEM.TOTL.ZS?downloadformat=csv", file.path(Raw_Data_Folder,"API_SL.UEM.TOTL.ZS_DS2_en_csv_v2_422140.zip"), mode = "wb")
+#download.file("http://api.worldbank.org/v2/en/indicator/SL.UEM.TOTL.ZS?downloadformat=csv", 
+#              file.path(Raw_Data_Folder,"API_SL.UEM.TOTL.ZS_DS2_en_csv_v2_422140.zip"), mode = "wb")
 Unemployment_zip <- "API_SL.UEM.TOTL.ZS_DS2_en_csv_v2_422140.zip"
 Unemployment_csv <- "API_SL.UEM.TOTL.ZS_DS2_en_csv_v2_422140.csv"
 unzip(file.path(Raw_Data_Folder,Unemployment_zip), exdir = file.path(Raw_Data_Folder,"Unemployment"))
@@ -87,6 +89,11 @@ Unemployment <- Unemployment %>%
   select(-Country_Code, -Indicator_Name)
 ```
 
+Below is a sample of the data frame:
+```{r Unemployment data frame sample with NA}
+Unemployment %>% sample_n(4) %>% knitr::kable(col.names = c("Country","Year","Unemployment rate"))
+```
+
 Our Initial Visualization of the data shows some clear places where we have missing data which we'll work to remove:
 
 ```{r Unemployemnt initial visualization, echo=FALSE, fig.height=7, fig.width=7}
@@ -102,7 +109,7 @@ Unemployment %>%
 
 The below code achieves this:
 
-```{r Unemplyment Removing NA's, echo=TRUE}
+```{r Unemployment Removing NAs, echo=TRUE}
 ## Removing years and countries with no data
 No_Data <- Unemployment %>%
   group_by(Year) %>% summarize(No_Data = sum(!is.na(Unemployment))) 
@@ -136,9 +143,9 @@ Unemployment_test <- Unemployment %>% filter(Year == 2019)
 Unemployment <- Unemployment %>% filter(Year != 2019) 
 ```
 
-### Visualizations and analysis
+### Visualizations and Analysis
 
-Now we are ready to Look at our data and extract some useful analysis. We repeat the initial visualization to confirm:
+Now we are ready to Look at our data and extract some useful analyses. We repeat the initial visualization to confirm:
 
 ```{r Visualizing wrangled unemployment data, echo=FALSE, fig.height=7, fig.width=7}
 # Viewing the Data
@@ -153,7 +160,7 @@ Unemployment %>%
 
 Next we Look at the Continent Wide Average Unemployment rate and try discern any trends:
 
-```{r continent wide unemplyment, echo=FALSE, message=FALSE}
+```{r continent wide unemployment, echo=FALSE, message=FALSE, warning=FALSE}
 # Continent Wide Trend
 Unemployment %>% group_by(Year) %>% summarize(Africa_Unemployment = mean(Unemployment)) %>% 
   ggplot(aes(Year,Africa_Unemployment)) + 
@@ -163,7 +170,7 @@ Unemployment %>% group_by(Year) %>% summarize(Africa_Unemployment = mean(Unemplo
 
 We can clearly see a downward trend with a potential leveling off, however this doesn't provide a meaningful  comparison to the stated target, instead we take a comparison between the average and the baseline we set:
 
-```{r Continent wide unemployment relative to baseline, echo=FALSE, message=FALSE}
+```{r Continent wide unemployment relative to baseline, echo=FALSE, message=FALSE, warning=FALSE}
 # Percentage difference between AU Average and the 2013 Baseline
 Unemployment %>% left_join(Baseline_Unemployment) %>% 
   group_by(Year) %>% 
@@ -228,4 +235,213 @@ Unemployment %>%
   facet_wrap(~Country_Name, scales = "free") + 
   geom_hline(yintercept = -0.25, color = "red", linetype = 2) + 
   ylab("Percentage difference between Unemployment rate \n and the 2013 Baseline")
+```
+
+## Annual GDP Growth
+
+We Repeat this process with data relating to GDP Growth, in this section of the report we will show less of the code as there are essential similarities in the process.
+
+### Data Wrangling
+
+Once we have loaded and wrangled the Annnual GDP Growth Data from the World Bank Open Data website
+
+```{r Wrangling GDP data, message=FALSE, warning=FALSE, include=FALSE}
+## Downloading and unpacking file
+#download.file("http://api.worldbank.org/v2/en/indicator/NY.GDP.MKTP.KD.ZG?downloadformat=csv", 
+#              file.path(Raw_Data_Folder,"API_NY.GDP.MKTP.KD.ZG_DS2_en_csv_v2_422196.zip"), mode = "wb")
+GDP_Growth_zip <- "API_NY.GDP.MKTP.KD.ZG_DS2_en_csv_v2_422196.zip"
+GDP_Growth_csv <- "API_NY.GDP.MKTP.KD.ZG_DS2_en_csv_v2_422196.csv"
+unzip(file.path(Raw_Data_Folder,GDP_Growth_zip), exdir = file.path(Raw_Data_Folder,"GDP_Growth"))
+
+#Reading the File into R
+GDP_Growth <- read_csv(file.path(Raw_Data_Folder,"GDP_Growth",GDP_Growth_csv), skip = 3)
+
+## Tidying the Data
+colnames(GDP_Growth) <- str_replace(colnames(GDP_Growth), " ", "_") 
+GDP_Growth <- GDP_Growth %>% 
+  filter(Country_Name %in% AU) %>% 
+  gather(key = "Year", value = "GDP_Growth", `1960`:`2019`, convert = TRUE) %>% 
+  select(-c(X65,Indicator_Code)) %>% 
+  filter(Country_Name %in% AU) %>% 
+  select(-Country_Code, -Indicator_Name)
+```
+
+Below is a sample of our tidied data:
+
+```{r GDP Data sample, echo=FALSE}
+GDP_Growth %>% sample_n(4) %>% knitr::kable(col.names = c("Country","Year","Unemployment rate"))
+```
+
+While here we make our initial visualization
+
+```{r GDP initial visualization, echo=FALSE, fig.height=7, fig.width=7}
+## Viewing The Data
+GDP_Growth %>% 
+  ggplot(aes(Year,Country_Name, fill = GDP_Growth)) + 
+  geom_tile(color = "black") + 
+  scale_fill_distiller(palette = "Blues", na.value = "grey50", direction = 1, name = "Annual GDP Growth") +
+  scale_x_continuous(expand = c(0,0)) + 
+  scale_y_discrete(expand = c(0,0)) + 
+  theme(panel.background = element_rect(fill = "grey50", color = "black"), 
+        panel.grid = element_line(color = "grey50")) +
+  ylab("Country")
+```
+
+We can see that the missing data is more sporadic than with the Unemployment rate, we clean up the missing data, opting to estimate missing data points for our test set with data from the closest year. The exception to this is Somalia where the latest data is from 1990 thus we exclude it from this analysis.
+
+```{r Wrangling and test data creation for GDP, message=FALSE, warning=FALSE, include=FALSE}
+## Removing years and countries with no data
+No_Data <- GDP_Growth %>%
+  group_by(Year) %>% summarize(No_Data = sum(!is.na(GDP_Growth))) 
+GDP_Growth <- GDP_Growth %>% 
+  left_join(No_Data, by = "Year") %>% filter(No_Data != 0) %>% select(-No_Data) 
+
+No_Data <- GDP_Growth %>% 
+  group_by(Country_Name) %>% summarize(No_Data = sum(!is.na(GDP_Growth))) 
+GDP_Growth <- GDP_Growth %>% 
+  left_join(No_Data, by = "Country_Name") %>% filter(No_Data != 0) %>% select(-No_Data) 
+
+## Tests Set
+GDP_Growth %>% group_by(Country_Name) %>% filter(Year == 2018) %>% 
+  summarize(Baseline = GDP_Growth) %>% filter(is.na(Baseline))
+
+GDP_Growth %>% filter(Country_Name == "Eritrea") %>% filter(!is.na(GDP_Growth)) %>% tail()
+Eritrea_2018 <- GDP_Growth %>% filter(Country_Name == "Eritrea", Year == 2011) %>% mutate(Year = 2018)
+
+GDP_Growth %>% filter(Country_Name == "South Sudan") %>% filter(!is.na(GDP_Growth)) %>% tail()
+South_Sudan_2018 <- GDP_Growth %>% filter(Country_Name == "South Sudan", Year == 2016) %>% mutate(Year = 2018)
+
+GDP_Growth %>% filter(Country_Name == "Somalia") %>% filter(!is.na(GDP_Growth)) %>% tail()
+
+GDP_Growth_test <- GDP_Growth %>% 
+  filter(Year == 2018, !Country_Name %in% c("Somalia","Eritrea","South Sudan")) %>% 
+  rbind(Eritrea_2018) %>% rbind(South_Sudan_2018)
+
+#Removing Test Data
+GDP_Growth <- GDP_Growth %>% filter(Year != 2018) 
+
+#Removing NA's
+GDP_Growth <- GDP_Growth %>% filter(!is.na(GDP_Growth))
+
+#Removing Somalia
+GDP_Growth <- GDP_Growth %>% filter(Country_Name != "Somalia")
+```
+
+We now visualise the data in our Wrangled data set after the exclusion of the Test data
+
+```{r post wrangling GPD visualization, echo=FALSE, fig.height=7, fig.width=7, message=FALSE, warning=FALSE}
+## Viewing the Data
+GDP_Growth %>% 
+  ggplot(aes(Year,Country_Name, fill = GDP_Growth)) + geom_tile(color = "black") + 
+  scale_fill_distiller(palette = "Blues", na.value = "black", direction = 1, name = "Annual GDP Growth") + 
+  scale_x_continuous(expand = c(0,0)) + 
+  scale_y_discrete(expand = c(0,0)) +
+  ylab("Country") +
+  theme(panel.background = element_rect(fill = "grey50", color = "black"), 
+        panel.grid = element_line(color = "grey50"))
+```
+
+### Visualization and Analysis
+
+We start by looking for Continent wide trends:
+
+```{r GDP continent wide trend, echo=FALSE, message=FALSE, warning=FALSE}
+## Continent Wide Trend
+GDP_Growth %>% group_by(Year) %>% summarize(Africa_GDP_Growth = mean(GDP_Growth)) %>% 
+  ggplot(aes(Year,Africa_GDP_Growth)) + 
+  geom_point() + 
+  geom_hline(yintercept = 7, color = "red", linetype = 2) + 
+  geom_vline(xintercept = 2013, color = "blue", linetype = 2) +
+  geom_smooth(span = 0.75) +
+  geom_text(data = data.frame(x = c(1995, 2013), 
+                              y = c(7,2), 
+                              label = c("Target Growth = 7%","2013"), 
+                              angle = c(0,90), vjust = 1, 
+                              fontface = "italic", size = 12 / .pt), 
+            aes(label = label, 
+                x = x, y = y, 
+                angle = angle, 
+                vjust= vjust, 
+                fontface = fontface, 
+                size = size), 
+            show.legend = FALSE) + 
+  ylab("Annual GPD Growth: \n Continent Wide")
+```
+
+The Scatter plot shows a massive variation from year to year with most of the years falling below the 7% Target. A Boxplot confirms this variation; please note that for clarity we only look at a subset of the years and  do not show the largest outliers:
+
+```{r GDP continent Wide Boxplot, echo=FALSE, message=FALSE, warning=FALSE}
+## Continent Wide Boxplot
+GDP_Growth %>% filter(Year >= 2005) %>%
+  group_by(Year) %>% mutate(Africa_GDP_Growth = mean(GDP_Growth)) %>%
+  ggplot(aes(as.character(Year),GDP_Growth)) + 
+  geom_boxplot() + 
+  geom_point(aes(as.character(Year),Africa_GDP_Growth), color = "blue") +
+  geom_hline(yintercept = 7, color = "red", linetype = 2) +
+  scale_color_distiller(palette = "Blues", na.value = "black", direction = 1) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.25)) + 
+  xlab("Year") +
+  ylab("Annual GDP Growth Rate") +
+  ylim(-25,25)
+```
+
+From here it is clear that the majority of Member states are not achieving the set target of 7%, a look at the countries with the highest and lowest growth rates provides a clearer picture of individual trends:
+
+```{r GDP Country Sample, echo=FALSE, message=FALSE, warning=FALSE}
+## Country Sample analysis
+Country_Sample <- GDP_Growth %>% 
+  filter(Year == max(Year)) %>% 
+  mutate(Country_Name = reorder(Country_Name,GDP_Growth)) %>% 
+  top_n(2) %>%
+  pull(Country_Name) %>% unique() %>% as.character()
+
+Country_Sample <- GDP_Growth %>% 
+  filter(Year == max(Year)) %>% 
+  mutate(Country_Name = reorder(Country_Name,GDP_Growth)) %>% 
+  top_n(-2) %>% 
+  pull(Country_Name) %>% unique() %>% as.character() %>% 
+  c(.,Country_Sample)
+
+GDP_Growth %>% 
+  filter(Country_Name %in% Country_Sample) %>%
+  ggplot(aes(Year,GDP_Growth)) + 
+  geom_point() + 
+  geom_smooth(span = 1) + 
+  facet_wrap(~Country_Name, scale = "free") + 
+  geom_hline(yintercept = 7, color = "red", linetype = 2) + 
+  ylab("Annual GDP Growth")
+```
+
+However it fails to give us an idea of what countries are performing since a consistent growth is just as if not more important than a high growth rate; additionally, countries like Libya with high variation that suffer large GDP losses can skew the trend by making equally large gains.
+
+We propose that looking at the proportion of years the target is reached is a more indicative metric:
+
+```{r Proportion of years target was met, echo=FALSE, fig.height=7, fig.width=7}
+## Proportion of years were target was met
+GDP_Growth %>% 
+  group_by(Country_Name) %>% 
+  summarise(Growth_Target = mean(GDP_Growth > 7)) %>%
+  mutate(Country_Name = reorder(Country_Name,Growth_Target)) %>%
+  ggplot(aes(Country_Name,Growth_Target)) +
+  geom_bar(stat = "identity") + 
+  coord_flip() + 
+  xlab("Country") + ylab("Proportion of Years Target is reached") +
+  scale_y_continuous(expand = c(0,0)) + 
+  scale_x_discrete(expand = c(0,0))
+```
+
+If we narrow our view to the years since the launch of Agenda 2063 we get yet a different look at how Member States are performing:
+
+```{r Proportion of years since 2013, echo=FALSE, fig.height=7, fig.width=7}
+GDP_Growth %>% 
+  group_by(Country_Name) %>% 
+  filter(Year >= 2013) %>% 
+  summarise(Growth_Target = mean(GDP_Growth > 7)) %>% 
+  mutate(Country_Name = reorder(Country_Name,Growth_Target)) %>%
+  ggplot(aes(Country_Name,Growth_Target)) + geom_bar(stat = "identity") + 
+  coord_flip() + 
+  xlab("Country") + ylab("Proportion of Years Target is reached  \n since 2013") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_y_continuous(expand = c(0,0)) + 
+  scale_x_discrete(expand = c(0,0)) 
 ```

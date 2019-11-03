@@ -1,4 +1,4 @@
-### Annual GDP Growth
+#### Annual GDP Growth
 
 ### Inputing AU Member Countries
 AU <- c("Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cabo Verde", "Cameroon	Central African Republic", 
@@ -9,22 +9,24 @@ AU <- c("Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Ca
         "Zambia", "Zimbabwe")
 
 
-### Loading Adujusted net national income per Capita
+### Loading GDP_Growth
+## Creating Raw Data Folder
 Raw_Data_Folder <- file.path(getwd(),"Raw_Data")
 dir.create(Raw_Data_Folder)
-download.file("http://api.worldbank.org/v2/en/indicator/NY.GDP.MKTP.KD.ZG?downloadformat=csv", file.path(Raw_Data_Folder,"API_NY.GDP.MKTP.KD.ZG_DS2_en_csv_v2_422196.zip"), mode = "wb")
+## Downloading and unpacking file
+download.file("http://api.worldbank.org/v2/en/indicator/NY.GDP.MKTP.KD.ZG?downloadformat=csv", 
+              file.path(Raw_Data_Folder,"API_NY.GDP.MKTP.KD.ZG_DS2_en_csv_v2_422196.zip"), mode = "wb")
 GDP_Growth_zip <- "API_NY.GDP.MKTP.KD.ZG_DS2_en_csv_v2_422196.zip"
 GDP_Growth_csv <- "API_NY.GDP.MKTP.KD.ZG_DS2_en_csv_v2_422196.csv"
 unzip(file.path(Raw_Data_Folder,GDP_Growth_zip), exdir = file.path(Raw_Data_Folder,"GDP_Growth"))
 
-#Reading the File into R
+## Reading the File into R
 GDP_Growth <- read_csv(file.path(Raw_Data_Folder,"GDP_Growth",GDP_Growth_csv), skip = 3)
 
-####################################################
-#Wrangling Adjusted net national incompe per capita
-####################################################
 
-#Tidying the Data
+###Wrangling GDP Growth Data
+
+## Tidying the Data
 colnames(GDP_Growth) <- str_replace(colnames(GDP_Growth), " ", "_") 
 GDP_Growth <- GDP_Growth %>% 
   filter(Country_Name %in% AU) %>% 
@@ -33,16 +35,19 @@ GDP_Growth <- GDP_Growth %>%
   filter(Country_Name %in% AU) %>% 
   select(-Country_Code, -Indicator_Name)
 
-#Viewing The Data
+## Viewing The Data
 GDP_Growth %>% 
-  ggplot(aes(Year,Country_Name, fill = GDP_Growth)) + geom_tile(color = "black") + 
+  ggplot(aes(Year,Country_Name, fill = GDP_Growth)) + 
+  geom_tile(color = "black") + 
   scale_fill_distiller(palette = "Blues", na.value = "grey50", direction = 1, name = "Annual GDP Growth") + 
-  scale_x_continuous(expand = c(0,0)) + scale_y_discrete(expand = c(0,0)) + 
-  theme(panel.background = element_rect(fill = "grey50", color = "black"), panel.grid = element_line(color = "grey50")) +
+  scale_x_continuous(expand = c(0,0)) + 
+  scale_y_discrete(expand = c(0,0)) + 
+  theme(panel.background = element_rect(fill = "grey50", color = "black"), 
+        panel.grid = element_line(color = "grey50")) +
   ylab("Country")
 
 
-#Removing years and countries with no data
+## Removing years and countries with no data
 No_Data <- GDP_Growth %>%
   group_by(Year) %>% summarize(No_Data = sum(!is.na(GDP_Growth))) 
 GDP_Growth <- GDP_Growth %>% 
@@ -53,7 +58,7 @@ No_Data <- GDP_Growth %>%
 GDP_Growth <- GDP_Growth %>% 
   left_join(No_Data, by = "Country_Name") %>% filter(No_Data != 0) %>% select(-No_Data) 
 
-#Tests Set
+## Tests Set
 GDP_Growth %>% group_by(Country_Name) %>% filter(Year == 2018) %>% 
   summarize(Baseline = GDP_Growth) %>% filter(is.na(Baseline))
 
@@ -78,57 +83,84 @@ GDP_Growth <- GDP_Growth %>% filter(!is.na(GDP_Growth))
 #Removing Somalia
 GDP_Growth <- GDP_Growth %>% filter(Country_Name != "Somalia")
 
-#Data Analysis
-#Year Range
+### Data Analysis
+## Year Range
 GDP_Growth %>% pull(Year) %>% max()
 GDP_Growth %>% pull(Year) %>% min()
 
-#Viewing the Data
+## Viewing the Data
 GDP_Growth %>% 
   ggplot(aes(Year,Country_Name, fill = GDP_Growth)) + geom_tile(color = "black") + 
   scale_fill_distiller(palette = "Blues", na.value = "black", direction = 1, name = "Annual GDP Growth") + 
   scale_x_continuous(expand = c(0,0)) + 
   scale_y_discrete(expand = c(0,0)) +
   ylab("Country") +
-  theme(panel.background = element_rect(fill = "grey50", color = "black"), panel.grid = element_line(color = "grey50"))
+  theme(panel.background = element_rect(fill = "grey50", color = "black"), 
+        panel.grid = element_line(color = "grey50"))
 
 
-#Continent Wide Trend
+## Continent Wide Trend
 GDP_Growth %>% group_by(Year) %>% summarize(Africa_GDP_Growth = mean(GDP_Growth)) %>% 
   ggplot(aes(Year,Africa_GDP_Growth)) + 
   geom_point() + 
   geom_hline(yintercept = 7, color = "red", linetype = 2) + 
   geom_vline(xintercept = 2013, color = "blue", linetype = 2) +
-  geom_text(data = data.frame(x = c(1995, 2013), y = c(7,2), label = c("Target Growth = 7%","2013"), angle = c(0,90), vjust = 1, fontface = "italic", size = 12 / .pt), 
-            aes(label = label, x = x, y = y, angle = angle, vjust= vjust, fontface = fontface, size = size), show.legend = FALSE) + 
+  geom_smooth(span = 0.75) +
+  geom_text(data = data.frame(x = c(1995, 2013), 
+                              y = c(7,2), 
+                              label = c("Target Growth = 7%","2013"), 
+                              angle = c(0,90), vjust = 1, 
+                              fontface = "italic", size = 12 / .pt), 
+            aes(label = label, 
+                x = x, y = y, 
+                angle = angle, 
+                vjust= vjust, 
+                fontface = fontface, 
+                size = size), 
+            show.legend = FALSE) + 
   ylab("Annual GPD Growth: \n Continent Wide")
 
-#Continent Wide Boxplot
+## Continent Wide Boxplot
 GDP_Growth %>% filter(Year >= 2005) %>%
   group_by(Year) %>% mutate(Africa_GDP_Growth = mean(GDP_Growth)) %>%
   ggplot(aes(as.character(Year),GDP_Growth)) + 
   geom_boxplot() + 
   geom_point(aes(as.character(Year),Africa_GDP_Growth), color = "blue") +
+  geom_hline(yintercept = 7, color = "red", linetype = 2) +
   scale_color_distiller(palette = "Blues", na.value = "black", direction = 1) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.25)) + 
   xlab("Year") +
   ylab("Annual GDP Growth Rate") +
   ylim(-25,25)
 
-#Country
+## Country Sample analysis
 Country_Sample <- GDP_Growth %>% 
-  select(Country_Name) %>% unique() %>% sample_n(4) %>% pull()
-GDP_Growth %>% filter(Country_Name %in% Country_Sample) %>%
-  ggplot(aes(Year,GDP_Growth,color = Country_Name)) + 
-  geom_point(show.legend = FALSE) + 
-  geom_smooth(span = 1,show.legend = FALSE) + 
-  facet_wrap(~Country_Name) + 
+  filter(Year == max(Year)) %>% 
+  mutate(Country_Name = reorder(Country_Name,GDP_Growth)) %>% 
+  top_n(2) %>%
+  pull(Country_Name) %>% unique() %>% as.character()
+
+Country_Sample <- GDP_Growth %>% 
+  filter(Year == max(Year)) %>% 
+  mutate(Country_Name = reorder(Country_Name,GDP_Growth)) %>% 
+  top_n(-2) %>% 
+  pull(Country_Name) %>% unique() %>% as.character() %>% 
+  c(.,Country_Sample)
+
+GDP_Growth %>% 
+  filter(Country_Name %in% Country_Sample) %>%
+  ggplot(aes(Year,GDP_Growth)) + 
+  geom_point() + 
+  geom_smooth(span = 1) + 
+  facet_wrap(~Country_Name, scale = "free") + 
   geom_hline(yintercept = 7, color = "red", linetype = 2) + 
   ylab("Annual GDP Growth")
 
-
+## Proportion of years were target was met
+#Complete Data Set
 GDP_Growth %>% 
-  group_by(Country_Name) %>% summarise(Growth_Target = mean(GDP_Growth > 7)) %>%
+  group_by(Country_Name) %>% 
+  summarise(Growth_Target = mean(GDP_Growth > 7)) %>%
   mutate(Country_Name = reorder(Country_Name,Growth_Target)) %>%
   ggplot(aes(Country_Name,Growth_Target)) +
   geom_bar(stat = "identity") + 
@@ -137,8 +169,11 @@ GDP_Growth %>%
   scale_y_continuous(expand = c(0,0)) + 
   scale_x_discrete(expand = c(0,0)) 
 
+#since 2013
 GDP_Growth %>% 
-  group_by(Country_Name) %>% filter(Year >= 2013) %>% summarise(Growth_Target = mean(GDP_Growth > 7)) %>% 
+  group_by(Country_Name) %>% 
+  filter(Year >= 2013) %>% 
+  summarise(Growth_Target = mean(GDP_Growth > 7)) %>% 
   mutate(Country_Name = reorder(Country_Name,Growth_Target)) %>%
   ggplot(aes(Country_Name,Growth_Target)) + geom_bar(stat = "identity") + 
   coord_flip() + 
@@ -147,7 +182,7 @@ GDP_Growth %>%
   scale_y_continuous(expand = c(0,0)) + 
   scale_x_discrete(expand = c(0,0)) 
 
-# model
+### model
 Control <- trainControl(method = "cv", number = 15, p = 0.9)
 
 fit_lm_GDP_Growth <- train(GDP_Growth ~ ., data = GDP_Growth, method = "lm", trControl = Control)
