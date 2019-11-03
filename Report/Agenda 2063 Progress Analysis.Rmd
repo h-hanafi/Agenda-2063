@@ -1,0 +1,231 @@
+---
+title: "Agenda 2063 Progress Analysis"
+author: "Hussam Hanafi"
+date: "11/3/2019"
+output: word_document
+---
+
+```{r setup, include = FALSE}
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(RColorBrewer)) install.packages("data.table", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(randomForest)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(xgboost)) install.packages("caret", repos = "http://cran.us.r-project.org")
+options(digits = 3)
+
+#Inputing AU Member Countries
+AU <- c("Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cabo Verde", "Cameroon	Central African Republic", 
+        "Chad", "Comoros",	"Congo, Dem. Rep.",	"Congo, Rep.",	"Cote d'Ivoire",	"Djibouti",	"Egypt Arab Rep.",	"Equatorial Guinea", "Eritrea",	
+        "Eswatini",	"Ethiopia",	"Gabon", "Gambia, The",	"Ghana", "Guinea", "Guinea-Bissau",	"Kenya", "Lesotho", "Liberia",	"Libya",	"Madagascar", 
+        "Malawi", "Mali",	"Mauritania",	"Mauritius",	"Morocco",	"Mozambique",	"Namibia",	"Niger", "Nigeria",	"Rwanda",	"Sao Tome and Principe", 
+        "Senegal",	"Seychelles", "Sierra Leone",	"Somalia", "South Africa", "South Sudan",	"Sudan", "Tanzania", "Togo",	"Tunisia", "Uganda", 
+        "Zambia", "Zimbabwe")
+```
+
+# Introduction
+
+[Agenda 2063](https://au.int/en/agenda2063/overview) is the African Unions' Strategic framework for delivering inclusive and and sustainable development signed on May 2013.
+
+As part of this agenda the AU has set over-arching goals and more granular targets to be achieved in the 50 years from 2013 to 2063.
+
+The purpose of this report is to evaluate progress on two of those targets in the medium term [First Ten Year Implementation Plan](https://au.int/sites/default/files/documents/33126-doc-ten_year_implementation_book.pdf) by analysing Indicator data from the [World Bank Open Data](https://data.worldbank.org/) Initiative.
+
+## First Ten Year Implementation Plan Targets
+
+The Two Targets were selected partially arbitrarily in the hope that they would be indicative of each other; however, the selection was also driven by the completeness of the data sets as there is often large gaps in data sets dealing with progress indicators due to a number of factors mostly affecting the data collection stage.
+
+For this Report the two targets/indicators chosen were as follows:
+
+* As part of the first Goal: A High Standard of Libing, Quality of Life and Well Being for All; the FTYIP sets a target of reducing Unemployment relative 2013 by at least 25%
+* As Part of the fourth Goal: Transfromed Economies and Job Creation; the FTYIP sets a target of 7% Annual growth
+
+This Report will use those two indicators to attempt to analyse progress and attempt to predict the value of these indicators by 2023.
+
+# Data Analysis
+
+We will analyse each of these indicators Seperately using the following steps:
+
+1. Accessing the data from the World Bank Open Data web-site
+2. Filtering out AU Memeber States
+3. Wrangling the data into tidy format
+4. Initial Visualization 
+5. Wrangling the data to minimize the effect of missing data points
+6. Visualizing the Data for Analysis Purposes
+7. Subsetting a Test Set to be used with our models
+
+## Unemployment Rate
+
+### Data Wrangling
+We Will start the Unemployment Rate Loading the Data from the World Bank Website with the code below:
+
+```{r Loading Unemployment Data, echo=TRUE, message=FALSE, warning=FALSE}
+### Loading Unemployment Rate
+## Creating Raw Data Folder
+Raw_Data_Folder <- file.path(getwd(),"Raw_Data")
+dir.create(Raw_Data_Folder)
+
+##Downloading and Unpacking the File
+download.file("http://api.worldbank.org/v2/en/indicator/SL.UEM.TOTL.ZS?downloadformat=csv", file.path(Raw_Data_Folder,"API_SL.UEM.TOTL.ZS_DS2_en_csv_v2_422140.zip"), mode = "wb")
+Unemployment_zip <- "API_SL.UEM.TOTL.ZS_DS2_en_csv_v2_422140.zip"
+Unemployment_csv <- "API_SL.UEM.TOTL.ZS_DS2_en_csv_v2_422140.csv"
+unzip(file.path(Raw_Data_Folder,Unemployment_zip), exdir = file.path(Raw_Data_Folder,"Unemployment"))
+
+##Reading the File into R
+Unemployment <- read_csv(file.path(Raw_Data_Folder,"Unemployment",Unemployment_csv), skip = 3)
+```
+
+Wrangling our Data into tidy format with the follwing code:
+
+```{r Wrangling unemployment rate, echo=TRUE, message=FALSE, warning=FALSE}
+## Tidying the Data
+colnames(Unemployment) <- str_replace(colnames(Unemployment), " ", "_") 
+Unemployment <- Unemployment %>%
+  filter(Country_Name %in% AU) %>% 
+  gather(key = "Year", value = "Unemployment", `1960`:`2019`, convert = TRUE) %>% 
+  select(-c(X65,Indicator_Code)) %>% 
+  filter(Country_Name %in% AU) %>% 
+  select(-Country_Code, -Indicator_Name)
+```
+
+Our Initial Visualization of the data shows some clear places where we have missing data which we'll work to remove:
+
+```{r Unemployemnt initial visualization, echo=FALSE, fig.height=7, fig.width=7}
+## Viewing The Data
+Unemployment %>% 
+  ggplot(aes(Year,Country_Name, fill = Unemployment)) + 
+  geom_tile(color = "black") + 
+  scale_fill_distiller(palette = "Blues", na.value = "grey50", direction = 1, name = "Unemployment rate") +
+  scale_x_continuous(expand = c(0,0)) + scale_y_discrete(expand = c(0,0)) + 
+  theme(axis.text.y = element_text(hjust = 1)) +
+  ylab("Country")
+```
+
+The below code achieves this:
+
+```{r Unemplyment Removing NA's, echo=TRUE}
+## Removing years and countries with no data
+No_Data <- Unemployment %>%
+  group_by(Year) %>% summarize(No_Data = sum(!is.na(Unemployment))) 
+Unemployment <- Unemployment %>% 
+  left_join(No_Data, by = "Year") %>% filter(No_Data != 0) %>% select(-No_Data) 
+
+No_Data <- Unemployment %>% group_by(Country_Name) %>% summarize(No_Data = sum(!is.na(Unemployment))) 
+Unemployment <- Unemployment %>% 
+  left_join(No_Data, by = "Country_Name") %>% filter(No_Data != 0) %>% select(-No_Data)
+```
+
+However since the stated goal is to reduce Unemployment by 25% relative to 2013 we will extract the 2013 values and use those as our Baseline; additionally, the below code will also set our test data and remove it from our training set:
+
+```{r setting unemployment baseline and test sets, echo=TRUE}
+## Setting Baseline and Test Sets
+# Baseline
+Unemployment %>% group_by(Country_Name) %>% filter(Year == c(2013)) %>% 
+  summarize(Baseline = Unemployment) %>% filter(is.na(Baseline))
+
+Baseline_Unemployment <- Unemployment %>% 
+  group_by(Country_Name) %>% filter(Year == (2013)) %>% 
+  summarize(Baseline = Unemployment) %>% filter(!is.na(Baseline))
+
+# Tests Set
+Unemployment %>% group_by(Country_Name) %>% filter(Year == c(2019)) %>% 
+  summarize(Baseline = Unemployment) %>% filter(is.na(Baseline))
+
+Unemployment_test <- Unemployment %>% filter(Year == 2019)
+
+# Removing Test Data
+Unemployment <- Unemployment %>% filter(Year != 2019) 
+```
+
+### Visualizations and analysis
+
+Now we are ready to Look at our data and extract some useful analysis. We repeat the initial visualization to confirm:
+
+```{r Visualizing wrangled unemployment data, echo=FALSE, fig.height=7, fig.width=7}
+# Viewing the Data
+Unemployment %>% 
+  ggplot(aes(Year,Country_Name, fill = Unemployment)) + 
+  geom_tile(color = "black") + 
+  scale_fill_distiller(palette = "Blues", na.value = "black", direction = 1, name = "Unemployment rate") + 
+  scale_x_continuous(expand = c(0,0)) + scale_y_discrete(expand = c(0,0)) +
+  ylab("Country") +
+  theme(panel.background = element_rect(fill = "grey50", color = "black"), panel.grid = element_line(color = "grey50"))
+```
+
+Next we Look at the Continent Wide Average Unemployment rate and try discern any trends:
+
+```{r continent wide unemplyment, echo=FALSE, message=FALSE}
+# Continent Wide Trend
+Unemployment %>% group_by(Year) %>% summarize(Africa_Unemployment = mean(Unemployment)) %>% 
+  ggplot(aes(Year,Africa_Unemployment)) + 
+  geom_point() + geom_smooth(span = 0.75) +
+  ylab("AU Average Unempolyment rate")
+```
+
+We can clearly see a downward trend with a potential leveling off, however this doesn't provide a meaningful  comparison to the stated target, instead we take a comparison between the average and the baseline we set:
+
+```{r Continent wide unemployment relative to baseline, echo=FALSE, message=FALSE}
+# Percentage difference between AU Average and the 2013 Baseline
+Unemployment %>% left_join(Baseline_Unemployment) %>% 
+  group_by(Year) %>% 
+  summarize(Africa_Unemployment = mean(Unemployment), Baseline = mean(Baseline)) %>% 
+  mutate(Difference_to_Baseline = (Africa_Unemployment - Baseline)/Baseline) %>% 
+  ggplot(aes(Year,Difference_to_Baseline)) + 
+  geom_point() + 
+  geom_smooth() +
+  geom_vline(xintercept = 2013, linetype = 2, color = "blue") + 
+  geom_hline(data = data_frame(yintercept = c(-0.25,0), color = c("black","red")),
+                        aes(yintercept = yintercept, color = color),linetype = c(2,1),show.legend = FALSE) + 
+  geom_text(data = data_frame(x = c(2013,2000), y = c(0.15,-0.25), label = c("2013", "25% below Baseline"), angle = c(90,0)), 
+            aes(x = x, y = y, label = label, angle = angle, vjust = 1), size = 12 / .pt) + 
+  scale_color_manual(values = c("red","black")) +
+  ylab("Percentage difference between AU Average \n and the 2013 Baseline")
+```
+
+As expected we see the same trend, it is however clear that the continent wide performance leaves something to be desired with the reduction in Unemployment rate by 2019 not approaching the target.
+
+A Boxplot showing the unemployment rate over the years paints a more nuanced picture showing large variations between Member States and a mean (in blue) that is significantly larger than the median implying that most member states are perfroming better than average:
+
+```{r Unemployment continent wide boxplot, echo=FALSE, message=FALSE}
+#Continent Wide Boxplot
+Unemployment %>% group_by(Year) %>% mutate(Africa_Unemployment = mean(Unemployment)) %>%
+  ggplot(aes(as.character(Year),Unemployment)) + 
+  geom_boxplot() + 
+  geom_point(aes(as.character(Year),Africa_Unemployment), color = "blue") +
+  scale_color_distiller(palette = "Blues", na.value = "black", direction = 1, name = "Unemployment rate") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.25)) + 
+  xlab("Year") +
+  ylab("Unemployment rate")
+```
+
+To illustrate this variation we look at the two top and bottom performing countries in `r max(Unemployment$Year)`
+
+```{r unemployment country sample visualizations, echo=FALSE, message=FALSE}
+Country_Sample <- Unemployment %>% 
+  filter(Year == max(Year)) %>% 
+  left_join(Baseline_Unemployment) %>%  
+  mutate(Difference_to_Baseline = (Unemployment - Baseline)/Baseline) %>% 
+  mutate(Country_Name = reorder(Country_Name,Difference_to_Baseline)) %>% 
+  top_n(-2) %>%
+  pull(Country_Name) %>% unique() %>% as.character()
+
+Country_Sample <- Unemployment %>% 
+  filter(Year == max(Year)) %>% 
+  left_join(Baseline_Unemployment) %>%  
+  mutate(Difference_to_Baseline = (Unemployment - Baseline)/Baseline) %>% 
+  mutate(Country_Name = reorder(Country_Name,Difference_to_Baseline)) %>% 
+  top_n(2) %>% 
+  pull(Country_Name) %>% unique() %>% as.character() %>% 
+  c(.,Country_Sample)
+
+Unemployment %>% 
+  filter(Country_Name %in% Country_Sample) %>%
+  left_join(Baseline_Unemployment) %>%  
+  mutate(Difference_to_Baseline = (Unemployment - Baseline)/Baseline) %>% 
+  mutate(Country_Name = reorder(Country_Name,Difference_to_Baseline)) %>%
+  ggplot(aes(Year,Difference_to_Baseline)) + 
+  geom_point() + 
+  geom_smooth(span = 1) + 
+  facet_wrap(~Country_Name, scales = "free") + 
+  geom_hline(yintercept = -0.25, color = "red", linetype = 2) + 
+  ylab("Percentage difference between Unemployment rate \n and the 2013 Baseline")
+```
