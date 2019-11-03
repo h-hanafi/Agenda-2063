@@ -1,10 +1,12 @@
+#### Unemployment Rate Model
+
 if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 if(!require(RColorBrewer)) install.packages("data.table", repos = "http://cran.us.r-project.org")
 if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
 if(!require(randomForest)) install.packages("caret", repos = "http://cran.us.r-project.org")
 if(!require(xgboost)) install.packages("caret", repos = "http://cran.us.r-project.org")
 
-#Inputing AU Member Countries
+### Inputing AU Member Countries
 AU <- c("Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cabo Verde", "Cameroon	Central African Republic", 
         "Chad", "Comoros",	"Congo, Dem. Rep.",	"Congo, Rep.",	"Cote d'Ivoire",	"Djibouti",	"Egypt Arab Rep.",	"Equatorial Guinea", "Eritrea",	
         "Eswatini",	"Ethiopia",	"Gabon", "Gambia, The",	"Ghana", "Guinea", "Guinea-Bissau",	"Kenya", "Lesotho", "Liberia",	"Libya",	"Madagascar", 
@@ -13,22 +15,25 @@ AU <- c("Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Ca
         "Zambia", "Zimbabwe")
 
 
-#Loading Adujusted net national income per Capita
+### Loading Unemployment Rate
+
+## Creating Raw Data Folder
 Raw_Data_Folder <- file.path(getwd(),"Raw_Data")
 dir.create(Raw_Data_Folder)
+
+##Downloading and Unpacking the File
 download.file("http://api.worldbank.org/v2/en/indicator/SL.UEM.TOTL.ZS?downloadformat=csv", file.path(Raw_Data_Folder,"API_SL.UEM.TOTL.ZS_DS2_en_csv_v2_422140.zip"), mode = "wb")
 Unemployment_zip <- "API_SL.UEM.TOTL.ZS_DS2_en_csv_v2_422140.zip"
 Unemployment_csv <- "API_SL.UEM.TOTL.ZS_DS2_en_csv_v2_422140.csv"
 unzip(file.path(Raw_Data_Folder,Unemployment_zip), exdir = file.path(Raw_Data_Folder,"Unemployment"))
 
-#Reading the File into R
+##Reading the File into R
 Unemployment <- read_csv(file.path(Raw_Data_Folder,"Unemployment",Unemployment_csv), skip = 3)
 
-####################################################
-#Wrangling Adjusted net national incompe per capita
-####################################################
 
-#Tidying the Data
+### Wrangling Adjusted net national incompe per capita
+
+## Tidying the Data
 colnames(Unemployment) <- str_replace(colnames(Unemployment), " ", "_") 
 Unemployment <- Unemployment %>%
   filter(Country_Name %in% AU) %>% 
@@ -37,7 +42,7 @@ Unemployment <- Unemployment %>%
   filter(Country_Name %in% AU) %>% 
   select(-Country_Code, -Indicator_Name)
 
-#Viewing The Data
+## Viewing The Data
 Unemployment %>% 
   ggplot(aes(Year,Country_Name, fill = Unemployment)) + 
   geom_tile(color = "black") + 
@@ -46,7 +51,7 @@ Unemployment %>%
   theme(axis.text.y = element_text(hjust = 1)) +
   ylab("Country")
 
-#Removing years and countries with no data
+## Removing years and countries with no data
 No_Data <- Unemployment %>%
   group_by(Year) %>% summarize(No_Data = sum(!is.na(Unemployment))) 
 Unemployment <- Unemployment %>% 
@@ -56,8 +61,8 @@ No_Data <- Unemployment %>% group_by(Country_Name) %>% summarize(No_Data = sum(!
 Unemployment <- Unemployment %>% 
   left_join(No_Data, by = "Country_Name") %>% filter(No_Data != 0) %>% select(-No_Data) 
 
-#Setting Baseline and Test Sets
-#Baseline
+## Setting Baseline and Test Sets
+# Baseline
 Unemployment %>% group_by(Country_Name) %>% filter(Year == c(2013)) %>% 
   summarize(Baseline = Unemployment) %>% filter(is.na(Baseline))
 
@@ -65,21 +70,21 @@ Baseline_Unemployment <- Unemployment %>%
   group_by(Country_Name) %>% filter(Year == (2013)) %>% 
   summarize(Baseline = Unemployment) %>% filter(!is.na(Baseline))
 
-#Tests Set
+# Tests Set
 Unemployment %>% group_by(Country_Name) %>% filter(Year == c(2019)) %>% 
   summarize(Baseline = Unemployment) %>% filter(is.na(Baseline))
 
 Unemployment_test <- Unemployment %>% filter(Year == 2019)
 
-#Removing Test Data
+# Removing Test Data
 Unemployment <- Unemployment %>% filter(Year != 2019) 
 
-#Data Analysis
-#Year Range
+## Data Analysis
+# Year Range
 Unemployment %>% pull(Year) %>% max()
 Unemployment %>% pull(Year) %>% min()
 
-#Viewing the Data
+# Viewing the Data
 Unemployment %>% 
   ggplot(aes(Year,Country_Name, fill = Unemployment)) + 
   geom_tile(color = "black") + 
@@ -88,7 +93,7 @@ Unemployment %>%
   ylab("Country") +
   theme(panel.background = element_rect(fill = "grey50", color = "black"), panel.grid = element_line(color = "grey50"))
 
-#Continent Wide Trend
+# Continent Wide Trend
 Unemployment %>% group_by(Year) %>% summarize(Africa_Unemployment = mean(Unemployment)) %>% 
   ggplot(aes(Year,Africa_Unemployment)) + 
   geom_point() + geom_smooth(span = 0.75) +
@@ -105,12 +110,14 @@ Unemployment %>% group_by(Year) %>% mutate(Africa_Unemployment = mean(Unemployme
   ylab("Unemployment rate")
 
 # Percentage difference between AU Average and the 2013 Baseline
-Unemployment %>% left_join(Baseline_Unemployment) %>% 
+Unemployment %>% 
+  left_join(Baseline_Unemployment) %>% 
   group_by(Year) %>% 
   summarize(Africa_Unemployment = mean(Unemployment), Baseline = mean(Baseline)) %>% 
   mutate(Difference_to_Baseline = (Africa_Unemployment - Baseline)/Baseline) %>% 
   ggplot(aes(Year,Difference_to_Baseline)) + 
   geom_point() + 
+  geom_smooth() +
   geom_vline(xintercept = 2013, linetype = 2, color = "blue") + 
   geom_hline(data = data_frame(yintercept = c(-0.25,0), color = c("black","red")),
                         aes(yintercept = yintercept, color = color),linetype = c(2,1),show.legend = FALSE) + 
@@ -118,6 +125,36 @@ Unemployment %>% left_join(Baseline_Unemployment) %>%
             aes(x = x, y = y, label = label, angle = angle, vjust = 1), size = 12 / .pt) + 
   scale_color_manual(values = c("red","black")) +
   ylab("Percentage difference between AU Average \n and the 2013 Baseline")
+
+#Country sample
+Country_Sample <- Unemployment %>% 
+  filter(Year == max(Year)) %>% 
+  left_join(Baseline_Unemployment) %>%  
+  mutate(Difference_to_Baseline = (Unemployment - Baseline)/Baseline) %>% 
+  mutate(Country_Name = reorder(Country_Name,Difference_to_Baseline)) %>% 
+  top_n(-2) %>%
+  pull(Country_Name) %>% unique() %>% as.character()
+
+Country_Sample <- Unemployment %>% 
+  filter(Year == max(Year)) %>% 
+  left_join(Baseline_Unemployment) %>%  
+  mutate(Difference_to_Baseline = (Unemployment - Baseline)/Baseline) %>% 
+  mutate(Country_Name = reorder(Country_Name,Difference_to_Baseline)) %>% 
+  top_n(2) %>% 
+  pull(Country_Name) %>% unique() %>% as.character() %>% 
+  c(.,Country_Sample)
+
+Unemployment %>% 
+  filter(Country_Name %in% Country_Sample) %>%
+  left_join(Baseline_Unemployment) %>%  
+  mutate(Difference_to_Baseline = (Unemployment - Baseline)/Baseline) %>% 
+  mutate(Country_Name = reorder(Country_Name,Difference_to_Baseline)) %>%
+  ggplot(aes(Year,Difference_to_Baseline)) + 
+  geom_point() + 
+  geom_smooth(span = 1) + 
+  facet_wrap(~Country_Name, scales = "free") + 
+  geom_hline(yintercept = -0.25, color = "red", linetype = 2) + 
+  ylab("Percentage difference between Unemployment rate \n and the 2013 Baseline")
 
 # model
 Control <- trainControl(method = "cv", number = 15, p = 0.9)

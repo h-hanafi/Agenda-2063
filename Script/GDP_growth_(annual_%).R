@@ -1,10 +1,6 @@
-if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
-if(!require(RColorBrewer)) install.packages("data.table", repos = "http://cran.us.r-project.org")
-if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
-if(!require(randomForest)) install.packages("caret", repos = "http://cran.us.r-project.org")
-if(!require(xgboost)) install.packages("caret", repos = "http://cran.us.r-project.org")
+### Annual GDP Growth
 
-#Inputing AU Member Countries
+### Inputing AU Member Countries
 AU <- c("Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cabo Verde", "Cameroon	Central African Republic", 
         "Chad", "Comoros",	"Congo, Dem. Rep.",	"Congo, Rep.",	"Cote d'Ivoire",	"Djibouti",	"Egypt Arab Rep.",	"Equatorial Guinea", "Eritrea",	
         "Eswatini",	"Ethiopia",	"Gabon", "Gambia, The",	"Ghana", "Guinea", "Guinea-Bissau",	"Kenya", "Lesotho", "Liberia",	"Libya",	"Madagascar", 
@@ -13,7 +9,7 @@ AU <- c("Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Ca
         "Zambia", "Zimbabwe")
 
 
-#Loading Adujusted net national income per Capita
+### Loading Adujusted net national income per Capita
 Raw_Data_Folder <- file.path(getwd(),"Raw_Data")
 dir.create(Raw_Data_Folder)
 download.file("http://api.worldbank.org/v2/en/indicator/NY.GDP.MKTP.KD.ZG?downloadformat=csv", file.path(Raw_Data_Folder,"API_NY.GDP.MKTP.KD.ZG_DS2_en_csv_v2_422196.zip"), mode = "wb")
