@@ -28,7 +28,7 @@ AU <- c("Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Ca
 
 As part of this agenda the AU has set over-arching goals and more granular targets to be achieved in the 50 years from 2013 to 2063.
 
-The purpose of this report is to evaluate progress on two of those targets in the medium term [First Ten Year Implementation Plan](https://au.int/sites/default/files/documents/33126-doc-ten_year_implementation_book.pdf) by analysing Indicator data from the [World Bank Open Data](https://data.worldbank.org/) Initiative.
+The purpose of this report is to evaluate progress on two of those targets in the medium term [First Ten Year Implementation Plan](https://au.int/sites/default/files/documents/33126-doc-ten_year_implementation_book.pdf) by analyzing Indicator data from the [World Bank Open Data](https://data.worldbank.org/) Initiative.
 
 ## First Ten Year Implementation Plan Targets
 
@@ -36,28 +36,28 @@ The Two Targets were selected partially arbitrarily in the hope that they would 
 
 For this Report the two targets/indicators chosen were as follows:
 
-* As part of the first Goal: A High Standard of Libing, Quality of Life and Well Being for All; the FTYIP sets a target of reducing Unemployment relative 2013 by at least 25%
-* As Part of the fourth Goal: Transfromed Economies and Job Creation; the FTYIP sets a target of 7% Annual growth
+* As part of the first Goal: A High Standard of Living, Quality of Life and Well Being for All; the FTYIP sets a target of reducing Unemployment relative 2013 by at least 25%
+* As Part of the fourth Goal: Transformed Economies and Job Creation; the FTYIP sets a target of 7% Annual growth
 
 This Report will use those two indicators to attempt to analyse progress and attempt to predict the value of these indicators by 2023.
 
 # Data Analysis
 
-We will analyse each of these indicators Seperately using the following steps:
+We will analyse each of these indicators separately using the following steps:
 
 1. Accessing the data from the World Bank Open Data web-site
-2. Filtering out AU Memeber States
+2. Filtering out AU Member States
 3. Wrangling the data into tidy format
 4. Initial Visualization 
 5. Wrangling the data to minimize the effect of missing data points
 6. Visualizing the Data for Analysis Purposes
-7. Subsetting a Test Set to be used with our models
+7. Sub-setting a Test Set to be used with our models
 
 ## Unemployment Rate
 
 ### Data Wrangling
 
-We Will start the with the Unemployment Rate, Loading the Data from the World Bank modelled estimate with the code below:
+We will start the with the Unemployment Rate, Loading the Data from the World Bank modeled estimate with the code below:
 
 ```{r Loading Unemployment Data, echo=TRUE, message=FALSE, warning=FALSE}
 ### Loading Unemployment Rate
@@ -76,7 +76,7 @@ unzip(file.path(Raw_Data_Folder,Unemployment_zip), exdir = file.path(Raw_Data_Fo
 Unemployment <- read_csv(file.path(Raw_Data_Folder,"Unemployment",Unemployment_csv), skip = 3)
 ```
 
-Wrangling our Data into tidy format with the follwing code:
+Wrangling our Data into tidy format with the following code:
 
 ```{r Wrangling unemployment rate, echo=TRUE, message=FALSE, warning=FALSE}
 ## Tidying the Data
@@ -165,7 +165,7 @@ Next we Look at the Continent Wide Average Unemployment rate and try discern any
 Unemployment %>% group_by(Year) %>% summarize(Africa_Unemployment = mean(Unemployment)) %>% 
   ggplot(aes(Year,Africa_Unemployment)) + 
   geom_point() + geom_smooth(span = 0.75) +
-  ylab("AU Average Unempolyment rate")
+  ylab("AU Average Unemployment rate")
 ```
 
 We can clearly see a downward trend with a potential leveling off, however this doesn't provide a meaningful  comparison to the stated target, instead we take a comparison between the average and the baseline we set:
@@ -190,7 +190,7 @@ Unemployment %>% left_join(Baseline_Unemployment) %>%
 
 As expected we see the same trend, it is however clear that the continent wide performance leaves something to be desired with the reduction in Unemployment rate by 2019 not approaching the target.
 
-A Boxplot showing the unemployment rate over the years paints a more nuanced picture showing large variations between Member States and a mean (in blue) that is significantly larger than the median implying that most member states are perfroming better than average:
+A Box-plot showing the unemployment rate over the years paints a more nuanced picture showing large variations between Member States and a mean (in blue) that is significantly larger than the median implying that most member states are performing better than average:
 
 ```{r Unemployment continent wide boxplot, echo=FALSE, message=FALSE}
 #Continent Wide Boxplot
@@ -243,7 +243,7 @@ We Repeat this process with data relating to GDP Growth, in this section of the 
 
 ### Data Wrangling
 
-Once we have loaded and wrangled the Annnual GDP Growth Data from the World Bank Open Data website
+Once we have loaded and wrangled the Annual GDP Growth Data from the World Bank Open Data website
 
 ```{r Wrangling GDP data, message=FALSE, warning=FALSE, include=FALSE}
 ## Downloading and unpacking file
@@ -272,14 +272,16 @@ Below is a sample of our tidied data:
 GDP_Growth %>% sample_n(4) %>% knitr::kable(col.names = c("Country","Year","Unemployment rate"))
 ```
 
-While here we make our initial visualization
+While here we make our initial visualization; it's important to not that for the sake of clarity outliers in both directions were scaled down to 25% and -25% Growth rate respectively:
 
 ```{r GDP initial visualization, echo=FALSE, fig.height=7, fig.width=7}
 ## Viewing The Data
 GDP_Growth %>% 
+  mutate(GDP_Growth = ifelse(GDP_Growth >= 25,25,GDP_Growth), 
+         GDP_Growth = ifelse(GDP_Growth <= -25,-25,GDP_Growth)) %>%
   ggplot(aes(Year,Country_Name, fill = GDP_Growth)) + 
   geom_tile(color = "black") + 
-  scale_fill_distiller(palette = "Blues", na.value = "grey50", direction = 1, name = "Annual GDP Growth") +
+  scale_fill_distiller(palette = "RdBu", na.value = "grey50", direction = 1, name = "Annual GDP Growth") +
   scale_x_continuous(expand = c(0,0)) + 
   scale_y_discrete(expand = c(0,0)) + 
   theme(panel.background = element_rect(fill = "grey50", color = "black"), 
@@ -327,18 +329,21 @@ GDP_Growth <- GDP_Growth %>% filter(!is.na(GDP_Growth))
 GDP_Growth <- GDP_Growth %>% filter(Country_Name != "Somalia")
 ```
 
-We now visualise the data in our Wrangled data set after the exclusion of the Test data
+We now visualize the data in our Wrangled data set after the exclusion of the Test data
 
 ```{r post wrangling GPD visualization, echo=FALSE, fig.height=7, fig.width=7, message=FALSE, warning=FALSE}
 ## Viewing the Data
-GDP_Growth %>% 
-  ggplot(aes(Year,Country_Name, fill = GDP_Growth)) + geom_tile(color = "black") + 
-  scale_fill_distiller(palette = "Blues", na.value = "black", direction = 1, name = "Annual GDP Growth") + 
+GDP_Growth %>%   
+  mutate(GDP_Growth = ifelse(GDP_Growth >= 25,25,GDP_Growth), 
+         GDP_Growth = ifelse(GDP_Growth <= -25,-25,GDP_Growth)) %>%
+  ggplot(aes(Year,Country_Name, fill = GDP_Growth)) + 
+  geom_tile(color = "black") + 
+  scale_fill_distiller(palette = "RdBu", na.value = "grey50", direction = 1, name = "Annual GDP Growth") + 
   scale_x_continuous(expand = c(0,0)) + 
-  scale_y_discrete(expand = c(0,0)) +
-  ylab("Country") +
+  scale_y_discrete(expand = c(0,0)) + 
   theme(panel.background = element_rect(fill = "grey50", color = "black"), 
-        panel.grid = element_line(color = "grey50"))
+        panel.grid = element_line(color = "grey50")) +
+  ylab("Country")
 ```
 
 ### Visualization and Analysis
@@ -368,7 +373,7 @@ GDP_Growth %>% group_by(Year) %>% summarize(Africa_GDP_Growth = mean(GDP_Growth)
   ylab("Annual GPD Growth: \n Continent Wide")
 ```
 
-The Scatter plot shows a massive variation from year to year with most of the years falling below the 7% Target. A Boxplot confirms this variation; please note that for clarity we only look at a subset of the years and  do not show the largest outliers:
+The Scatter plot shows a massive variation from year to year with most of the years falling below the 7% Target. A Box-plot confirms this variation; please note that for clarity we only look at a subset of the years and  do not show the largest outliers:
 
 ```{r GDP continent Wide Boxplot, echo=FALSE, message=FALSE, warning=FALSE}
 ## Continent Wide Boxplot
@@ -445,3 +450,495 @@ GDP_Growth %>%
   scale_y_continuous(expand = c(0,0)) + 
   scale_x_discrete(expand = c(0,0)) 
 ```
+
+
+# Methodology
+
+Building our model we will use 10 fold Cross-Validation across all models. For the purposes of this report we will compare four models:
+
+1. Linear Regression
+2. K-Nearest Neighbors
+3. Gradient Boosting
+4. Random Forest
+
+To determine the effectiveness of our models we will use the Root Mean Square Error between our predictions and the test set as a measure; optimizing our parameters as we go along.
+
+## Unemployment Rate
+
+First we will Build our model for the Unemployment rate, attempting to predict the unemployment rate at the FTYIP or 2023.
+
+### Building the Model
+
+The below code builds the model using the four methods below.
+
+```{r Unemployment Model, echo=TRUE, message=FALSE, warning=FALSE}
+### model
+## 10 Fold CV
+Control <- trainControl(method = "cv", number = 15, p = 0.9)
+
+##Linear Regression
+fit_lm_Unemployment <- train(Unemployment ~ ., data = Unemployment, 
+                             method = "lm", trControl = Control)
+pred_lm_Unemployment <- predict(fit_lm_Unemployment, newdata = Unemployment_test)
+RMSE_lm <- sqrt(mean((pred_lm_Unemployment - Unemployment_test$Unemployment)^2))
+
+## K-Nearest Neighbors
+tune = data.frame(k = 1:5)
+fit_knn_Unemployment <- train(Unemployment ~ ., data = Unemployment, 
+                              method = "knn", tuneGrid = tune, trControl = Control)
+
+pred_knn_Unemployment <- predict(fit_knn_Unemployment, newdata = Unemployment_test)
+RMSE_knn <- sqrt(mean((pred_knn_Unemployment - Unemployment_test$Unemployment)^2))
+
+## Extreme Gradient Boosting
+tune <- expand.grid(nrounds = seq(200,300,50), lambda = seq(1,3,0.5), alpha = c(0,1e-04), eta = 0.3)
+fit_xgb_Unemployment <- train(Unemployment ~ ., data = Unemployment, 
+                              method = "xgbLinear", tuneGrid = tune, trControl = Control)
+pred_xgb_Unemployment <- predict(fit_xgb_Unemployment, newdata = Unemployment_test)
+RMSE_xgb <- sqrt(mean((pred_xgb_Unemployment - Unemployment_test$Unemployment)^2))
+
+## Random Forest
+tune = data.frame(mtry = seq(40,50,5))
+fit_rf_Unemployment<- train(Unemployment ~ ., data = Unemployment, 
+                            method = "rf", tuneGrid = tune, trControl = Control)
+pred_rf_Unemployment <- predict(fit_rf_Unemployment, newdata = Unemployment_test)
+RMSE_rf <- sqrt(mean((pred_rf_Unemployment - Unemployment_test$Unemployment)^2))
+
+## Storing the Results
+Results_Unemployment <- data_frame(method = c("lm","knn","xgb","rf"), 
+                                   RMSE = c(RMSE_lm,RMSE_knn,RMSE_xgb,RMSE_rf))
+
+fit_Unemployment <- list(lm = fit_lm_Unemployment, knn = fit_knn_Unemployment, 
+                         xgb = fit_xgb_Unemployment, rf = fit_rf_Unemployment)
+Best_fit_Unemployment <- fit_Unemployment[[Results_Unemployment$method[which.min(Results_Unemployment$RMSE)]]]
+```
+
+Plotting our Parameters against the RMSE allows us to ensure that our model is optimized, below is an example using the k-Nearest Neighbors Model:
+
+```{r Unemployment Parameters, echo=FALSE}
+plot(fit_knn_Unemployment)
+```
+The results from each of our Models can be seen below:
+
+```{r unemployment Model Results, echo=FALSE}
+Results_Unemployment %>% mutate(method = c("Linear Model", "k-Nearest Neighbors","Gradient Boosting", "Random Forest")) %>%  knitr::kable(col.names = c("Method","RMSE"))
+```
+
+Thus the best performing methodology is:
+
+```{r Unemployment best performing model, echo=FALSE, message=FALSE, warning=FALSE}
+Results_Unemployment %>% mutate(method = c("Linear Model", "k-Nearest Neighbors","Gradient Boosting", "Random Forest")) %>% mutate(method = reorder(method,RMSE)) %>% top_n(-1) %>% knitr::kable(col.names = c("Method","RMSE"))
+```
+  
+### FTYIP Prediction
+
+Now we will use our model to predict the Unemployment rate for the year 2023. The Prediction can be generated with the following code:
+
+```{r Unemployment 2023 prediction, echo=TRUE, message=FALSE, warning=FALSE}
+Unemployment_2023 <- Unemployment_test %>% 
+  mutate(Year = 2023) %>% select(-Unemployment)
+
+Unemployment_2023 <- Unemployment_2023 %>% 
+  mutate(Unemployment = predict(Best_fit_Unemployment, newdata = Unemployment_2023)) %>% 
+  left_join(Baseline_Unemployment, by = "Country_Name") %>% 
+  mutate(Difference_to_Baseline = (Unemployment - Baseline)/Baseline)
+
+mu_Unemployment_2023 <- Unemployment_2023 %>% summarize(mean(Difference_to_Baseline)) %>% pull()
+```
+
+Visualizing the distribution of the Percentage difference between the Prediction and the Baseline data gives us an indication of how progress towards the target is distributed:
+
+```{r unemployment 2023 distribution, echo=FALSE}
+Unemployment_2023 %>%
+  ggplot(aes(Difference_to_Baseline)) +
+  geom_histogram(bins = 40, color = "black") + 
+  geom_vline(xintercept = mu_Unemployment_2023, color = "blue", linetype = 2) + 
+  scale_y_continuous(expand = c(0,0)) + 
+  xlab("Percentage Difference between the Unemployment rate and the Baseline")
+```
+
+We can see a number of outliers on the high end; otherwise, the result is tightly distributed with most Member States managing to reduce unemployment performing at or better than the Continent Wide average of `r mu_Unemployment_2023*100`%. This average is much lower than the target set in the FTYIP and is such a cause for concern.
+
+Unfortunately, our predictions indicate that only two States succeed in achieving the 2023 target of 25% reduction in the Unemployment rate:
+
+```{r Unemployment rate successful countries, echo=FALSE}
+Unemployment_2023 %>% filter(Difference_to_Baseline <= -0.25) %>% 
+  select(Country_Name, Unemployment, Difference_to_Baseline) %>%
+  mutate(Difference_to_Baseline = Difference_to_Baseline * 100) %>%
+  knitr::kable(col.names = c("Country","Unemployment rate","Percentage Difference to Baseline"))
+```
+
+Visualizing the Unemployment data for these states shows us that the prediction is consistent with the trend they have been exhibiting:
+
+```{r Visualizing Success for Unemployment rate, echo=FALSE, message=FALSE, warning=FALSE}
+Unemployment_2023 %>% 
+  filter(Difference_to_Baseline <= -0.25) %>% select(Country_Name) %>% 
+  inner_join(Unemployment, by = c("Country_Name")) %>% 
+  left_join(Baseline_Unemployment) %>% 
+  mutate(Difference_to_Baseline = (Unemployment - Baseline)/Baseline) %>%
+  ggplot(aes(Year, Difference_to_Baseline)) + 
+  geom_point(show.legend = FALSE) + 
+  geom_hline(yintercept = -0.25, color = "red", linetype =2) + 
+  geom_smooth(span = 0.75) +
+  facet_grid(Country_Name~.) + 
+  ylab("Percentage Difference between Baseline Unemployment rate and \n Predicted Unemployment rate")
+```
+
+## Annual GDP Growth
+
+We will repeat the same steps to model the Annual GDP Growth.
+
+### Building the Model
+
+Once again we use 10 fold cross Validation and the same four modelling methodologies as before.
+
+```{r GDP Model, message=FALSE, warning=FALSE, include=FALSE}
+### Building the model
+
+## Linear Regression
+fit_lm_GDP_Growth <- train(GDP_Growth ~ ., data = GDP_Growth, method = "lm", trControl = Control)
+pred_lm_GDP_Growth <- predict(fit_lm_GDP_Growth, newdata = GDP_Growth_test)
+RMSE_lm <- sqrt(mean((pred_lm_GDP_Growth - GDP_Growth_test$GDP_Growth)^2))
+
+## K-Nearest Neighbours
+tune = data.frame(k = 1:10)
+fit_knn_GDP_Growth <- train(GDP_Growth ~ ., data = GDP_Growth, method = "knn", tuneGrid = tune, trControl = Control)
+pred_knn_GDP_Growth <- predict(fit_knn_GDP_Growth, newdata = GDP_Growth_test)
+RMSE_knn <- sqrt(mean((pred_knn_GDP_Growth - GDP_Growth_test$GDP_Growth)^2))
+
+## Gradient Boosting
+tune <- expand.grid(nrounds = seq(50,150,50), lambda = seq(0.6,1,0.1), alpha = c(0,1e-04,1), eta = 0.3)
+fit_xgb_GDP_Growth <- train(GDP_Growth ~ ., data = GDP_Growth, method = "xgbLinear", tuneGrid = tune, trControl = Control )
+pred_xgb_GDP_Growth <- predict(fit_xgb_GDP_Growth, newdata = GDP_Growth_test)
+RMSE_xgb <- sqrt(mean((pred_xgb_GDP_Growth - GDP_Growth_test$GDP_Growth)^2))
+
+## Random Forest
+tune = data.frame(mtry = seq(5,15,1))
+fit_rf_GDP_Growth <- train(GDP_Growth ~ ., data = GDP_Growth, method = "rf", tuneGrid = tune, trControl = Control)
+pred_rf_GDP_Growth <- predict(fit_rf_GDP_Growth, newdata = GDP_Growth_test)
+RMSE_rf <- sqrt(mean((pred_rf_GDP_Growth - GDP_Growth_test$GDP_Growth)^2))
+
+## Inputing the Results
+Results_GDP_Growth <- data_frame(method = c("lm","knn","xgb","rf"), RMSE = c(RMSE_lm,RMSE_knn,RMSE_xgb,RMSE_rf))
+
+fit_GDP_Growth <- list(lm = fit_lm_GDP_Growth, knn = fit_knn_GDP_Growth, xgb = fit_xgb_GDP_Growth, rf = fit_rf_GDP_Growth)
+
+Best_fit_GDP_Growth <- fit_GDP_Growth[[Results_GDP_Growth$method[which.min(Results_GDP_Growth$RMSE)]]]
+```
+
+Below we can see the results for our Model
+
+```{r Results gdp, echo=FALSE}
+Results_GDP_Growth %>% mutate(method = c("Linear Regression","k-Nearest Neighbors","Gradient Boosting","Random Forest")) %>% knitr::kable(col.names = c("Method","RMSE"))
+```
+
+Thus our best performing model is:
+
+```{r Best model gdp, echo=FALSE, message=FALSE, warning=FALSE}
+Results_GDP_Growth %>% mutate(method = c("Linear Model", "k-Nearest Neighbors","Gradient Boosting", "Random Forest")) %>% mutate(method = reorder(method,RMSE)) %>% top_n(-1) %>% knitr::kable(col.names = c("Method","RMSE"))
+```
+
+We can confirm the optimization of our model parameters with a plot like the below for the Gradient Boosting method:
+
+```{r gdp parameter plot, echo=FALSE}
+plot(fit_xgb_GDP_Growth)
+```
+
+### FTYIP Prediction
+
+Next we make predictions using our best performing model
+
+```{r gdp 2023 prediction, include=FALSE}
+GDP_Growth_2023 <- GDP_Growth_test %>% select(Country_Name) %>% mutate(Year = 2023)
+
+GDP_Growth_2023 <- GDP_Growth_2023 %>% mutate(GDP_Growth = predict(Best_fit_GDP_Growth, newdata = GDP_Growth_2023))
+
+mu_GDP_Growth_2023 <- GDP_Growth_2023 %>% summarise(AU_GDP_Growth = mean(GDP_Growth)) %>% pull()
+```
+
+We take a look at a sample of our predictions:
+
+```{r gdp prediction sample, echo=FALSE}
+GDP_Growth_2023 %>% sample_n(4) %>% knitr::kable(col.names = c("Country","Year","Annual GDP Growth"))
+```
+
+A more detailed a look at the distribution of our predictions show a large number of the Member states perform positively at or above the AU average of `r mu_GDP_Growth_2023`% even if they do not achieve the stated target of 7% Annual GDP Growth.
+
+```{r gdp prediction histogram, echo=FALSE}
+GDP_Growth_2023 %>%
+  ggplot(aes(GDP_Growth)) +
+  geom_histogram(bins = 20, color = "black") + 
+  geom_vline(xintercept = mu_GDP_Growth_2023, color = "blue", linetype = 2) +
+  scale_x_continuous(breaks = c(mu_GDP_Growth_2023,7,seq(-10,20,5))) + 
+  scale_y_continuous(expand = c(0,0)) + 
+  ylab("Annual GDP Growth")
+```
+
+
+
+Below we list the states that do meet our growth target:
+
+```{r gdp countries meeting the target, echo=FALSE}
+GDP_Growth_2023 %>% filter(GDP_Growth >= 7) %>% knitr::kable(col.names = c("Country","Year","Annual GDP Growth")) 
+```
+
+looking at the data for these countries we see that the apparent trend supports these predictions. The exception is Libya that has had a large variation around our growth target indicating a weakness in our model to account for them.
+
+```{r scatter plot of countries meeting GDP targets, echo=FALSE, message=FALSE, warning=FALSE}
+GDP_Growth_2023 %>% filter(GDP_Growth >= 7) %>% select(Country_Name) %>% 
+  inner_join(GDP_Growth) %>%
+  ggplot(aes(Year, GDP_Growth)) + 
+  geom_point() + 
+  geom_smooth(span = 1) +
+  geom_hline(yintercept = 7, color = "red", linetype = 2) +
+  scale_color_brewer("Country",palette = "Dark2") + 
+  facet_wrap(Country_Name~., ncol = 2, scales = "free") + 
+  ylab("Annual GDP Growth")
+```
+
+## Modeling the Combined Data Sets
+
+### Wrangling the Data set
+
+Finally we combine the data sets for both indicators and redo our predictions for both indicators using the combined data set.
+
+We achieve this alongside preparing our data sets using the following code:
+
+```{r combining the data sets, echo=TRUE, message=FALSE, warning=FALSE}
+#Preparing the Data
+Model <- GDP_Growth %>% full_join(Unemployment)
+
+#Removing years and countries with no data
+No_Data <- Model %>%
+  group_by(Year) %>% summarize(No_Data = sum(!is.na(Unemployment))) 
+Model <- Model %>% left_join(No_Data, by = "Year") %>% filter(No_Data != 0) %>% select(-No_Data) 
+
+No_Data <- Model %>% group_by(Country_Name) %>% summarize(No_Data = sum(!is.na(Unemployment))) 
+Model <- Model %>% left_join(No_Data, by = "Country_Name") %>% filter(No_Data != 0) %>% select(-No_Data) 
+
+No_Data <- Model %>%
+  group_by(Year) %>% summarize(No_Data = sum(!is.na(GDP_Growth))) 
+Model <- Model %>% left_join(No_Data, by = "Year") %>% filter(No_Data != 0) %>% select(-No_Data) 
+
+No_Data <- Model %>% group_by(Country_Name) %>% summarize(No_Data = sum(!is.na(GDP_Growth))) 
+Model <- Model %>% left_join(No_Data, by = "Country_Name") %>% filter(No_Data != 0) %>% select(-No_Data) 
+
+#Removing NA's
+Model <- Model %>% filter(!is.na(GDP_Growth))
+
+#Setting Test Data
+Unemployment_2018 <- Unemployment %>% filter(Year == 2018)
+Model_test <- GDP_Growth_test %>% left_join(Unemployment_2018)
+
+Model_test <- Model_test %>% filter(!is.na(GDP_Growth),!is.na(Unemployment))
+```
+
+### Visualizations
+
+We view the new Data set first by GDP growth rate:
+
+```{r combined model viewing GDP, echo=FALSE, fig.height=7, fig.width=7}
+Model %>% 
+  mutate(GDP_Growth = ifelse(GDP_Growth >= 25,25,GDP_Growth), 
+         GDP_Growth = ifelse(GDP_Growth <= -25,-25,GDP_Growth)) %>%
+  ggplot(aes(Year,Country_Name, fill = GDP_Growth)) + 
+  geom_tile(color = "black") + 
+  scale_fill_distiller(palette = "RdBu", na.value = "grey50", direction = 1, name = "Annual GDP Growth") + 
+  scale_x_continuous(expand = c(0,0)) + scale_y_discrete(expand = c(0,0)) + 
+  ylab("Country") +
+  theme(axis.text.y = element_text(hjust = 1), 
+        panel.background = element_rect(fill = "grey50", color = "black"), 
+        panel.grid = element_line(color = "grey50"))
+```
+
+Then by Unemployment rate:
+
+```{r combined model viewing unemployment, echo=FALSE, fig.height=7, fig.width=7}
+Model %>% 
+  ggplot(aes(Year,Country_Name, fill = Unemployment)) + 
+  geom_tile(color = "black") + 
+  scale_fill_distiller(palette = "Blues", na.value = "grey50", direction = 1, name = "Unemployment Rate") + 
+  scale_x_continuous(expand = c(0,0)) + scale_y_discrete(expand = c(0,0)) + 
+  ylab("Country") +
+  theme(axis.text.y = element_text(hjust = 1), 
+        panel.background = element_rect(fill = "grey50", color = "black"), 
+        panel.grid = element_line(color = "grey50"))
+
+```
+
+Next we attempt to visualize the correlation between the two indicators across the years and for each member state. Ideally we would want to see a high negative correlation as we want to reduce Unemployment alongside a high GDP growth rate.
+
+```{r correlation by year, echo=FALSE, message=FALSE, warning=FALSE}
+Model %>% group_by(Year) %>% 
+  summarize(cor = cor(GDP_Growth,Unemployment)) %>% 
+  ggplot(aes(Year,cor)) + 
+  geom_point(aes(color = ifelse(cor <= 0, "red","blue")), show.legend = FALSE) + 
+  geom_hline(yintercept = 0) +
+  geom_smooth(span = 0.8, alpha = 0.2,color = "black") +
+   ylab("Correlation between Annual GDP Growth and \n Unemployment Rate")
+```
+
+The plot of correlation against year shows us that the correlation between the two indicators is not a constant but rather follows a downward trend implying  that as time goes on they are becoming better indicators of each other if only slightly.
+
+Making a similar plot on a Country by Country basis helps explain the low continent wide correlation. There is a large variation across countries that then reduces the Continent wide average.
+
+```{r correlation by country, echo=FALSE, fig.width=7}
+Model %>% group_by(Country_Name) %>% summarize(cor = cor(GDP_Growth,Unemployment)) %>% 
+  ggplot(aes(Country_Name,cor)) + 
+  geom_point(aes(color = ifelse(cor <= 0, "red","blue")), show.legend = FALSE) + 
+  geom_hline(yintercept = 0) +
+  theme(axis.text.x = element_text(angle = 90,hjust = 1,vjust = 0.25)) + 
+  ylab("Correlation between Annual GDP Growth and \n Unemployment Rate") +
+  xlab("Country")
+```
+
+### New Unemployment Model
+
+```{r combined unemployment models, message=FALSE, warning=FALSE, include=FALSE}
+fit_lm_Model_Unemployment <- train(Unemployment ~ ., data = Model, method = "lm", trControl = Control)
+pred_lm_Model_Unemployment <- predict(fit_lm_Model_Unemployment, newdata = Model_test)
+RMSE_lm <- sqrt(mean((pred_lm_Model_Unemployment - Model_test$Unemployment)^2))
+
+tune = data.frame(k = 1:15)
+fit_knn_Model_Unemployment <- train(Unemployment ~ ., data = Model, method = "knn", tuneGrid = tune, trControl = Control)
+pred_knn_Model_Unemployment <- predict(fit_knn_Model_Unemployment, newdata = Model_test)
+RMSE_knn <- sqrt(mean((pred_knn_Model_Unemployment - Model_test$Unemployment)^2))
+
+tune <- expand.grid(nrounds = seq(300,400,50), lambda = seq(1,3,0.5), alpha = c(0,1e-04), eta = 0.3)
+fit_xgb_Model_Unemployment <- train(Unemployment ~ ., data = Model, method = "xgbLinear", trControl = Control )
+pred_xgb_Model_Unemployment <- predict(fit_xgb_Model_Unemployment, newdata = Model_test)
+RMSE_xgb <- sqrt(mean((pred_xgb_Model_Unemployment - Model_test$Unemployment)^2))
+
+tune = data.frame(mtry = seq(0,20,10))
+fit_rf_Model_Unemployment <- train(Unemployment ~ ., data = Model, method = "rf", tuneGrid = tune)
+pred_rf_Model_Unemployment <- predict(fit_rf_Model_Unemployment, newdata = Model_test)
+RMSE_rf <- sqrt(mean((pred_rf_Model_Unemployment - Model_test$Unemployment)^2))
+
+Results_Model_Unemployment <- data_frame(method = c("lm","knn","xgb","rf"), RMSE = c(RMSE_lm,RMSE_knn,RMSE_xgb,RMSE_rf))
+
+fit_Model_Unemployment <- list(lm = fit_lm_Model_Unemployment, knn = fit_knn_Model_Unemployment, 
+                               xgb = fit_xgb_Model_Unemployment, rf = fit_rf_Model_Unemployment)
+```
+
+We rebuild our models using the new data sets and compare our results with our previous unemployment model:
+
+```{r unemployment cross data set comparison, echo=FALSE}
+Results_Unemployment %>% 
+  full_join(Results_Model_Unemployment, 
+                                   by = "method",suffix = c("_Original","_Compounded")) %>%
+  mutate(method = c("Linear Regression","k-Nearest Neighbors","Gradient Boosting","Random Forest")) %>%
+  knitr::kable(col.names = c("Method","Original data set RMSE","Combined data set RMSE"))
+```
+
+Our Various Model methodologies are under-performing once we add GDP growth as a predictor so we discontinue this line of inquiry.
+
+### New Annual GDP growth model
+
+```{r combined GDP models, message=FALSE, warning=FALSE, include=FALSE}
+# Linear Regression
+fit_lm_Model_GDP_Growth <- train(GDP_Growth ~ ., data = Model, method = "lm", trControl = Control)
+pred_lm_Model_GDP_Growth <- predict(fit_lm_Model_GDP_Growth, newdata = Model_test)
+RMSE_lm <- sqrt(mean((pred_lm_Model_GDP_Growth - Model_test$GDP_Growth)^2))
+
+#k-Nearest Neighbours
+tune = data.frame(k = 90:100)
+fit_knn_Model_GDP_Growth <- train(GDP_Growth ~ ., data = Model, 
+                                  method = "knn", tuneGrid = tune, trControl = Control)
+pred_knn_Model_GDP_Growth <- predict(fit_knn_Model_GDP_Growth, newdata = Model_test)
+RMSE_knn <- sqrt(mean((pred_knn_Model_GDP_Growth - Model_test$GDP_Growth)^2))
+
+# Gradient Boosting
+tune <- expand.grid(nrounds = 50, lambda = c(0,1e-04,0.1,1), alpha = c(0,1e-04,0.1,1), eta = 0.3)
+fit_xgb_Model_GDP_Growth <- train(GDP_Growth ~ ., data = Model, 
+                                  method = "xgbLinear", trControl = Control )
+pred_xgb_Model_GDP_Growth <- predict(fit_xgb_Model_GDP_Growth, newdata = Model_test)
+RMSE_xgb <- sqrt(mean((pred_xgb_Model_GDP_Growth - Model_test$GDP_Growth)^2))
+
+# Random Forest
+tune = data.frame(mtry = seq(2,10,2))
+fit_rf_Model_GDP_Growth <- train(GDP_Growth ~ ., data = Model, 
+                                 method = "rf", tuneGrid = tune, trControl = Control)
+pred_rf_Model_GDP_Growth <- predict(fit_rf_Model_GDP_Growth, newdata = Model_test)
+RMSE_rf <- sqrt(mean((pred_rf_Model_GDP_Growth - Model_test$GDP_Growth)^2))
+
+Results_Model_GDP_Growth <- data_frame(method = c("lm","knn","xgb","rf"), RMSE = c(RMSE_lm,RMSE_knn,RMSE_xgb,RMSE_rf))
+
+Results_GDP_Growth %>% full_join(Results_Model_GDP_Growth, by = "method",suffix = c("_Original","_Compounded"))
+
+fit_Model_GDP_Growth <- list(lm = fit_lm_Model_GDP_Growth, knn = fit_knn_Model_GDP_Growth, xgb = fit_xgb_Model_GDP_Growth, rf = fit_rf_Model_GDP_Growth)
+
+Best_fit_Model_GDP_Growth <- fit_Model_GDP_Growth[[Results_Model_GDP_Growth$method[which.min(Results_Model_GDP_Growth$RMSE)]]]
+```
+
+We repeat the previous exercise, this time attempting to predict Annual GDP Growth with Unemployment as a predictor. The results are:
+
+```{r results GDP cross data set comparison, echo=FALSE}
+Results_GDP_Growth %>% 
+  full_join(Results_Model_GDP_Growth, by = "method",suffix = c("_Original","_Compounded")) %>%
+  mutate(method = c("Linear Regression","k-Nearest Neighbors","Gradient Boosting","Random Forest")) %>%
+  knitr::kable(col.names = c("Method","Original Data set RMSE","Combined data set RMSE"))
+```
+
+This time we find that adding Unemployment as a predictor of Annual GDP_Growth leads to an improvement in our model. Therefore, we use our best performing model to make the predictions.
+
+The below code predicts Unemployment in 2023 and then uses that to predict the Annual GDP Growth of 2023:
+
+```{r 2023 predictions using the combined model, echo=TRUE, message=FALSE, warning=FALSE}
+Model_GDP_Growth_2023 <- Model_test %>% mutate(Year = 2023) %>% select(Country_Name,Year)
+
+Model_GDP_Growth_2023 <- Model_GDP_Growth_2023 %>% 
+  mutate(Unemployment = predict(Best_fit_Unemployment, newdata = .)) %>%
+  mutate(GDP_Growth = predict(Best_fit_Model_GDP_Growth, newdata = .))
+```
+
+A histogram of our results shows a similar trend as before although the data seems more tightly clustered with fewer outliers:
+
+```{r histogram gdp growth combined data set prediction, echo=FALSE}
+mu_Model_GDP_Growth_2023 <- Model_GDP_Growth_2023 %>% 
+  summarise(AU_GDP_Growth = mean(GDP_Growth)) %>% pull()
+
+Model_GDP_Growth_2023 %>%
+  ggplot(aes(GDP_Growth)) +
+  geom_histogram(bins = 20, color = "black") + 
+  geom_vline(xintercept = mu_GDP_Growth_2023, color = "blue", linetype = 2) +
+  scale_x_continuous(breaks = c(mu_GDP_Growth_2023,7,seq(-10,20,5))) +
+  scale_y_continuous(expand = c(0,0)) + 
+  xlab("Annual GDP Growth")
+```
+
+Finally by looking at the countries that achieve the targets we find that the trends do support our prediction. In spite of Cote d'Ivoire no longer predicted to succeed we have one more country predicted to succeed than in our last model.
+
+Once again we caution at the inclusion of Libya considering the massive variance it is exhibiting in the data set.
+
+```{r Countries achieving GDP target combined data, echo=FALSE, message=FALSE, warning=FALSE}
+Model_GDP_Growth_2023 %>% filter(GDP_Growth >= 7) %>% select(Country_Name) %>% 
+  inner_join(GDP_Growth) %>%
+  ggplot(aes(Year, GDP_Growth)) + 
+  geom_point() + 
+  geom_hline(yintercept = 7, color = "red", linetype = 2) +
+  geom_smooth(span = 1) + 
+  scale_color_brewer("Country",palette = "Dark2") + 
+  facet_wrap(.~Country_Name, scales = "free",ncol = 2) + 
+  ylab("Annual GDP Growth")
+```
+
+# Conclusion
+
+In the Course of the report we set out to assess the progress of AU member states in achieving specific targets set in the First Ten Year Implementation Plan; as well as to predict if those targets would be achieved by 2023.
+
+## Technical findings
+
+On the more technical side we found two important if predictable findings
+
+1. That different indicators are better modeled with different modelling algorithms
+2. That because one indicator can act as a predictor for another does not mean the opposite is true
+
+## Analysis Results and Recommendations
+
+In terms of the performance of member states we find that many if not most member states are performing positively in our chosen indicators; however, they are falling short of the targets with only a handful predicted to achieve it by 2023.
+
+This can partly be blamed at how the targets are set. For example, we alluded that a more important indicator for success might be how often a target is reached rather than simply whether or not it is achieved. This would minimize the effect of large variations in our data set such as we saw with the Annual GDP Growth in Libya.
+
+Continent Wide performance indicators; whether measured as the Mean or Median, hide the Variation within the continent with many Member States vastly over or under-performing leading to skewed distributions. 
+
+Stratifying Member states based on commonalities may help to isolate the causes of these variations guiding policy decision.

@@ -36,10 +36,12 @@ GDP_Growth <- GDP_Growth %>%
   select(-Country_Code, -Indicator_Name)
 
 ## Viewing The Data
-GDP_Growth %>% 
+GDP_Growth %>%   
+  mutate(GDP_Growth = ifelse(GDP_Growth >= 25,25,GDP_Growth), 
+                        GDP_Growth = ifelse(GDP_Growth <= -25,-25,GDP_Growth)) %>%
   ggplot(aes(Year,Country_Name, fill = GDP_Growth)) + 
   geom_tile(color = "black") + 
-  scale_fill_distiller(palette = "Blues", na.value = "grey50", direction = 1, name = "Annual GDP Growth") + 
+  scale_fill_distiller(palette = "RdBu", na.value = "grey50", direction = 1, name = "Annual GDP Growth") + 
   scale_x_continuous(expand = c(0,0)) + 
   scale_y_discrete(expand = c(0,0)) + 
   theme(panel.background = element_rect(fill = "grey50", color = "black"), 
@@ -89,14 +91,17 @@ GDP_Growth %>% pull(Year) %>% max()
 GDP_Growth %>% pull(Year) %>% min()
 
 ## Viewing the Data
-GDP_Growth %>% 
-  ggplot(aes(Year,Country_Name, fill = GDP_Growth)) + geom_tile(color = "black") + 
-  scale_fill_distiller(palette = "Blues", na.value = "black", direction = 1, name = "Annual GDP Growth") + 
+GDP_Growth %>%   
+  mutate(GDP_Growth = ifelse(GDP_Growth >= 25,25,GDP_Growth), 
+         GDP_Growth = ifelse(GDP_Growth <= -25,-25,GDP_Growth)) %>%
+  ggplot(aes(Year,Country_Name, fill = GDP_Growth)) + 
+  geom_tile(color = "black") + 
+  scale_fill_distiller(palette = "RdBu", na.value = "grey50", direction = 1, name = "Annual GDP Growth") + 
   scale_x_continuous(expand = c(0,0)) + 
-  scale_y_discrete(expand = c(0,0)) +
-  ylab("Country") +
+  scale_y_discrete(expand = c(0,0)) + 
   theme(panel.background = element_rect(fill = "grey50", color = "black"), 
-        panel.grid = element_line(color = "grey50"))
+        panel.grid = element_line(color = "grey50")) +
+  ylab("Country")
 
 
 ## Continent Wide Trend
@@ -182,50 +187,60 @@ GDP_Growth %>%
   scale_y_continuous(expand = c(0,0)) + 
   scale_x_discrete(expand = c(0,0)) 
 
-### model
+### Building the model
+## 10 Fold Cross Validation
 Control <- trainControl(method = "cv", number = 15, p = 0.9)
 
+## Linear Regression
 fit_lm_GDP_Growth <- train(GDP_Growth ~ ., data = GDP_Growth, method = "lm", trControl = Control)
 pred_lm_GDP_Growth <- predict(fit_lm_GDP_Growth, newdata = GDP_Growth_test)
 RMSE_lm <- sqrt(mean((pred_lm_GDP_Growth - GDP_Growth_test$GDP_Growth)^2))
 
+## K-Nearest Neighbours
 tune = data.frame(k = 1:10)
 fit_knn_GDP_Growth <- train(GDP_Growth ~ ., data = GDP_Growth, method = "knn", tuneGrid = tune, trControl = Control)
 plot(fit_knn_GDP_Growth)
 pred_knn_GDP_Growth <- predict(fit_knn_GDP_Growth, newdata = GDP_Growth_test)
 RMSE_knn <- sqrt(mean((pred_knn_GDP_Growth - GDP_Growth_test$GDP_Growth)^2))
 
+## Gradient Boosting
 tune <- expand.grid(nrounds = seq(50,150,50), lambda = seq(0.6,1,0.1), alpha = c(0,1e-04,1), eta = 0.3)
 fit_xgb_GDP_Growth <- train(GDP_Growth ~ ., data = GDP_Growth, method = "xgbLinear", tuneGrid = tune, trControl = Control )
 plot(fit_xgb_GDP_Growth)
 pred_xgb_GDP_Growth <- predict(fit_xgb_GDP_Growth, newdata = GDP_Growth_test)
 RMSE_xgb <- sqrt(mean((pred_xgb_GDP_Growth - GDP_Growth_test$GDP_Growth)^2))
 
+## Random Forest
 tune = data.frame(mtry = seq(5,15,1))
 fit_rf_GDP_Growth <- train(GDP_Growth ~ ., data = GDP_Growth, method = "rf", tuneGrid = tune, trControl = Control)
 plot(fit_rf_GDP_Growth)
 pred_rf_GDP_Growth <- predict(fit_rf_GDP_Growth, newdata = GDP_Growth_test)
 RMSE_rf <- sqrt(mean((pred_rf_GDP_Growth - GDP_Growth_test$GDP_Growth)^2))
 
+## Inputing the Results
 Results_GDP_Growth <- data_frame(method = c("lm","knn","xgb","rf"), RMSE = c(RMSE_lm,RMSE_knn,RMSE_xgb,RMSE_rf))
 
 fit_GDP_Growth <- list(lm = fit_lm_GDP_Growth, knn = fit_knn_GDP_Growth, xgb = fit_xgb_GDP_Growth, rf = fit_rf_GDP_Growth)
 
-#2023 goal
 Best_fit_GDP_Growth <- fit_GDP_Growth[[Results_GDP_Growth$method[which.min(Results_GDP_Growth$RMSE)]]]
 Best_fit_GDP_Growth$method
 
+### 2023 goal
+
+## Making our Predictions
 GDP_Growth_2023 <- GDP_Growth_test %>% select(Country_Name) %>% mutate(Year = 2023)
 
 GDP_Growth_2023 <- GDP_Growth_2023 %>% mutate(GDP_Growth = predict(Best_fit_GDP_Growth, newdata = GDP_Growth_2023))
 
 mu_GDP_Growth_2023 <- GDP_Growth_2023 %>% summarise(AU_GDP_Growth = mean(GDP_Growth)) %>% pull()
 
+## Histogram
 GDP_Growth_2023 %>%
   ggplot(aes(GDP_Growth)) +
   geom_histogram(binwidth = 0.5, color = "black") + 
   scale_x_continuous(breaks = seq(-10,20,5))
 
+##boxplot
 GDP_Growth_2023 %>%
   ggplot(aes(as.character(Year),GDP_Growth)) + 
   geom_boxplot(outlier.shape = NA) + 
@@ -235,6 +250,8 @@ GDP_Growth_2023 %>%
             aes(label = label, x = x, y = y,vjust = 1)) +
   ylab("Annual GDP Growth") +
   xlab("Year")  
+
+## countries ahcieving the target
 
 GDP_Growth_2023 %>% filter(GDP_Growth >= 7) %>% select(Country_Name) 
 

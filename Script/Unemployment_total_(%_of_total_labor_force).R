@@ -156,39 +156,45 @@ Unemployment %>%
   geom_hline(yintercept = -0.25, color = "red", linetype = 2) + 
   ylab("Percentage difference between Unemployment rate \n and the 2013 Baseline")
 
-# model
+### model
+## 10 Fold CV
 Control <- trainControl(method = "cv", number = 15, p = 0.9)
 
+##Linear Regression
 fit_lm_Unemployment <- train(Unemployment ~ ., data = Unemployment, method = "lm", trControl = Control)
 pred_lm_Unemployment <- predict(fit_lm_Unemployment, newdata = Unemployment_test)
 RMSE_lm <- sqrt(mean((pred_lm_Unemployment - Unemployment_test$Unemployment)^2))
 
+## K-Nearest Neighbors
 tune = data.frame(k = 1:5)
 fit_knn_Unemployment <- train(Unemployment ~ ., data = Unemployment, method = "knn", tuneGrid = tune, trControl = Control)
 plot(fit_knn_Unemployment)
 pred_knn_Unemployment <- predict(fit_knn_Unemployment, newdata = Unemployment_test)
 RMSE_knn <- sqrt(mean((pred_knn_Unemployment - Unemployment_test$Unemployment)^2))
 
+## Extreme Gradient Boosting
 tune <- expand.grid(nrounds = seq(200,300,50), lambda = seq(1,3,0.5), alpha = c(0,1e-04), eta = 0.3)
 fit_xgb_Unemployment <- train(Unemployment ~ ., data = Unemployment, method = "xgbLinear", tuneGrid = tune, trControl = Control )
 plot(fit_xgb_Unemployment)
 pred_xgb_Unemployment <- predict(fit_xgb_Unemployment, newdata = Unemployment_test)
 RMSE_xgb <- sqrt(mean((pred_xgb_Unemployment - Unemployment_test$Unemployment)^2))
 
+## Random Forest
 tune = data.frame(mtry = seq(40,50,5))
 fit_rf_Unemployment<- train(Unemployment ~ ., data = Unemployment, method = "rf", tuneGrid = tune, trControl = Control)
 plot(fit_rf_Unemployment)
 pred_rf_Unemployment <- predict(fit_rf_Unemployment, newdata = Unemployment_test)
 RMSE_rf <- sqrt(mean((pred_rf_Unemployment - Unemployment_test$Unemployment)^2))
 
+## Storing the Results
 Results_Unemployment <- data_frame(method = c("lm","knn","xgb","rf"), RMSE = c(RMSE_lm,RMSE_knn,RMSE_xgb,RMSE_rf))
 
 fit_Unemployment <- list(lm = fit_lm_Unemployment, knn = fit_knn_Unemployment, xgb = fit_xgb_Unemployment, rf = fit_rf_Unemployment)
-
-#2023 goal
 Best_fit_Unemployment <- fit_Unemployment[[Results_Unemployment$method[which.min(Results_Unemployment$RMSE)]]]
 Best_fit_Unemployment$method
 
+### 2023 prediction
+## generating the prediction
 Unemployment_2023 <- Unemployment_test %>% mutate(Year = 2023) %>% select(-Unemployment)
 
 Unemployment_2023 <- Unemployment_2023 %>% 
@@ -196,6 +202,9 @@ Unemployment_2023 <- Unemployment_2023 %>%
   left_join(Baseline_Unemployment, by = "Country_Name") %>% 
   mutate(Difference_to_Baseline = (Unemployment - Baseline)/Baseline)
 
+mu_Unemployment_2023 <- Unemployment_2023 %>% summarize(mean(Difference_to_Baseline)) %>% pull()
+
+## Boxplot
 Unemployment_2023 %>% 
   ggplot(aes(as.character(Year),Difference_to_Baseline)) + 
   geom_boxplot(outlier.shape = NA) + geom_jitter(alpha = 0.3) + 
@@ -204,15 +213,26 @@ Unemployment_2023 %>%
   xlab("Year") + 
   ylab("Percentage Difference between Baseline Unemployment rate and \n Predicted Unemployment rate")
 
-Unemployment_2023 %>% filter(Difference_to_Baseline <= -0.25) %>% select(Country_Name, Unemployment, Difference_to_Baseline)
+## Histogram
 
+Unemployment_2023 %>%
+  ggplot(aes(Difference_to_Baseline)) +
+  geom_histogram(bins = 40, color = "black") + 
+  geom_vline(xintercept = mu_Unemployment_2023, color = "red", linetype = 2) + 
+  scale_y_continuous(expand = c(0,0))
+
+## Countries achieveing goal
+Unemployment_2023 %>% filter(Difference_to_Baseline <= -0.25) %>% 
+  select(Country_Name, Unemployment, Difference_to_Baseline)
+
+## Trend
 Unemployment_2023 %>% 
   filter(Difference_to_Baseline <= -0.25) %>% select(Country_Name) %>% 
   inner_join(Unemployment, by = c("Country_Name")) %>% 
   left_join(Baseline_Unemployment) %>% 
   mutate(Difference_to_Baseline = (Unemployment - Baseline)/Baseline) %>%
-  ggplot(aes(Year, Difference_to_Baseline, color = Country_Name)) + 
-  geom_point(show.legend = FALSE) + scale_color_brewer("Country",palette = "Dark2") + 
+  ggplot(aes(Year, Difference_to_Baseline)) + 
+  geom_point(show.legend = FALSE)  + 
   geom_hline(yintercept = -0.25, color = "red", linetype =2) + 
   geom_smooth(span = 0.75) +
   facet_grid(Country_Name~.) + 
