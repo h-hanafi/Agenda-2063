@@ -700,7 +700,7 @@ GDP_Growth_2023 %>% filter(GDP_Growth >= 7) %>% select(Country_Name) %>%
 
 ### Wrangling the Data set
 
-Finally we combine the data sets for both indicators and redo our predictions for both indicators using the combined data set.
+Finally, we combine the data sets for both indicators and redo our predictions for both indicators using the combined data set.
 
 We achieve this alongside preparing our data sets using the following code:
 
